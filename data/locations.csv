@@ -1,0 +1,4 @@
+﻿locationId,name,difficulty,dispatchSeconds,baseCreditReward,baseExpReward,materialAReward,materialBReward
+SITE_ALPHA,도심 철거 현장,1,120,180,24,3,1
+SITE_BRAVO,야간 도로 보수,2,180,280,38,5,2
+SITE_CHARLIE,산업단지 대형 프로젝트,3,300,420,55,8,4

@@ -1,0 +1,5 @@
+﻿gradeFrom,gradeTo,requiredLevel,timeSeconds,costCredits,route,multiplierBonus
+1,2,3,120,220,A,0.08
+1,2,3,120,220,B,0.10
+2,3,6,240,480,A,0.12
+2,3,6,240,480,B,0.15

@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  credits     Int      @default(1000)
+  materialA   Int      @default(0) @map("material_a")
+  materialB   Int      @default(0) @map("material_b")
+  officeLevel Int      @default(1) @map("office_level")
+  lastLoginAt DateTime @default(now()) @map("last_login_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  mercenaries    Mercenary[]
+  equipments     Equipment[]
+  dispatches     Dispatch[]
+  craftJobs      CraftJob[]
+  offers         Offer[]
+  promotionJobs  PromotionJob[]
+
+  @@map("users")
+}
+
+model Mercenary {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  templateId      String   @map("template_id")
+  level           Int      @default(1)
+  exp             Int      @default(0)
+  grade           Int
+  roleTag         String   @map("role_tag")
+  promotionRoute  String?  @map("promotion_route")
+  promotionBonus  Float    @default(0) @map("promotion_bonus")
+  isDispatched    Boolean  @default(false) @map("is_dispatched")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mercenaries")
+}
+
+model Equipment {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  type           String
+  grade          Int
+  statValue      Int      @map("stat_value")
+  equippedMercId String?  @map("equipped_merc_id") @db.Uuid
+  slotIndex      Int?     @map("slot_index")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("equipments")
+}
+
+model Dispatch {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  partyIds        Json      @map("party_ids")
+  locationId      String    @map("location_id")
+  startAt         DateTime  @map("start_at")
+  endAt           DateTime  @map("end_at")
+  status          String
+  successChance   Float     @default(0) @map("success_chance")
+  successResult   Boolean?  @map("success_result")
+  rewardCredits   Int       @default(0) @map("reward_credits")
+  rewardExp       Int       @default(0) @map("reward_exp")
+  rewardMaterialA Int       @default(0) @map("reward_material_a")
+  rewardMaterialB Int       @default(0) @map("reward_material_b")
+  claimedAt       DateTime? @map("claimed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("dispatches")
+}
+
+model CraftJob {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  recipeId        String    @map("recipe_id")
+  resultEquipType String    @map("result_equip_type")
+  resultGrade     Int       @map("result_grade")
+  resultStatValue Int       @map("result_stat_value")
+  startAt         DateTime  @map("start_at")
+  endAt           DateTime  @map("end_at")
+  status          String
+  claimedAt       DateTime? @map("claimed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("craft_jobs")
+}
+
+model Offer {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  slotIndex  Int      @map("slot_index")
+  templateId String   @map("template_id")
+  expiresAt  DateTime @map("expires_at")
+  seed       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, slotIndex])
+  @@index([userId, expiresAt])
+  @@map("offers")
+}
+
+model PromotionJob {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  mercenaryId     String    @map("mercenary_id") @db.Uuid
+  route           String
+  gradeFrom       Int       @map("grade_from")
+  gradeTo         Int       @map("grade_to")
+  multiplierBonus Float     @map("multiplier_bonus")
+  startAt         DateTime  @map("start_at")
+  endAt           DateTime  @map("end_at")
+  status          String
+  claimedAt       DateTime? @map("claimed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("promotion_jobs")
+}

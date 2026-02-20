@@ -1,0 +1,5 @@
+﻿recipeId,resultEquipType,resultGrade,statValue,costCredits,costMaterialA,costMaterialB,craftSeconds
+RCP_IRON_WRENCH,weapon,1,6,140,2,0,90
+RCP_SAFETY_VEST,armor,1,5,130,1,1,90
+RCP_CORE_BADGE,accessory,2,9,260,3,2,150
+RCP_OVERDRIVE_CHIP,extra,2,11,320,4,3,180
