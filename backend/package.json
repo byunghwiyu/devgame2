@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:safe": "npm run build && node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/server.js",
     "prisma:generate": "prisma generate",

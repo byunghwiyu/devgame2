@@ -25,6 +25,8 @@ export type OfferCard = {
   roleTag: string;
   recruitCostCredits: number;
   traitLine: string;
+  talentTag?: string | null;
+  talentName?: string | null;
   expiresAt: string;
 };
 

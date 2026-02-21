@@ -7,9 +7,12 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",
-    "dev:backend": "npm --workspace backend run dev",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
+    "dev:backend": "npm --workspace backend run dev:safe",
+    "dev:backend:watch": "npm --workspace backend run dev",
+    "dev:backend:safe": "npm --workspace backend run dev:safe",
     "dev:frontend": "npm --workspace frontend run dev",
+    "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "build": "npm --workspace backend run build && npm --workspace frontend run build"
   },
   "devDependencies": {

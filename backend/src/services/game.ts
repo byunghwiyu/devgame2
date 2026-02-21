@@ -66,3 +66,35 @@ export function createOfferTemplateId(minGrade: number, maxGrade: number): strin
   }
   return weightedPick(candidates, (r) => r.recruitWeight).templateId;
 }
+
+function seededUnit(seed: string, salt: string): number {
+  const digest = crypto.createHash("sha256").update(`${seed}:${salt}`).digest();
+  const value = digest.readUInt32BE(0);
+  return value / 0xffffffff;
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+export function previewTalentTagFromSeed(seed?: string | null): string | null {
+  if (!seed) return null;
+  const talents = dataRegistry.talents;
+  if (talents.length < 1) return null;
+
+  const chance = clamp01(dataRegistry.getDefineValue("talentAssignChance", 0));
+  if (seededUnit(seed, "talent-assign") > chance) return null;
+
+  const total = talents.reduce((sum, t) => sum + Math.max(0, t.rollWeight), 0);
+  if (total <= 0) {
+    const idx = Math.floor(seededUnit(seed, "talent-index") * talents.length);
+    return talents[Math.min(talents.length - 1, idx)].talentTag;
+  }
+
+  let roll = seededUnit(seed, "talent-roll") * total;
+  for (const talent of talents) {
+    roll -= Math.max(0, talent.rollWeight);
+    if (roll <= 0) return talent.talentTag;
+  }
+  return talents[talents.length - 1].talentTag;
+}

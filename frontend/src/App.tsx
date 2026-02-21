@@ -50,8 +50,31 @@ function equipIcon(type: string): string {
   return "?";
 }
 
+function talentHue(tag?: string | null): number {
+  if (!tag) return 210;
+  let hash = 0;
+  for (let i = 0; i < tag.length; i += 1) {
+    hash = (hash * 31 + tag.charCodeAt(i)) % 360;
+  }
+  return hash;
+}
+
+function talentBadgeStyle(tag?: string | null) {
+  const hue = talentHue(tag);
+  return {
+    borderColor: `hsl(${hue} 80% 62%)`,
+    background: `hsl(${hue} 55% 21% / 0.92)`,
+    color: `hsl(${hue} 95% 88%)`,
+    boxShadow: `0 0 0 1px hsl(${hue} 70% 40% / 0.35) inset`,
+  };
+}
+
 export default function App() {
   const { token, setToken } = useAuthStore();
+  const [authMode, setAuthMode] = useState<"LOGIN" | "SIGNUP">("LOGIN");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authNickname, setAuthNickname] = useState("");
   const [tab, setTab] = useState<Tab>("RECRUIT");
   const [profile, setProfile] = useState<ProfileData>();
   const [offers, setOffers] = useState<OfferCard[]>([]);
@@ -122,14 +145,19 @@ export default function App() {
   };
 
   const guarded = async (fn: () => Promise<void>) => {
-    if (!token) return;
     setLoading(true);
     setError("");
     try {
       await fn();
     } catch (e) {
-      setError((e as Error).message);
-      showToast(`Failed: ${(e as Error).message}`);
+      const message = (e as Error).message;
+      setError(message);
+      if (message === "HTTP_401" || message === "UNAUTHORIZED") {
+        setToken(null);
+        showToast("Session reset. Reconnecting...");
+      } else {
+        showToast(`Failed: ${message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -230,6 +258,77 @@ export default function App() {
     showToast("Battle started");
   };
 
+  const handleLogin = async () => {
+    if (!authEmail || !authPassword) {
+      setError("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    await guarded(async () => {
+      const { token: nextToken } = await api.login(authEmail, authPassword);
+      setToken(nextToken);
+      await syncAll(nextToken);
+      showToast("로그인 완료");
+    });
+  };
+
+  const handleSignup = async () => {
+    if (!authEmail || !authPassword) {
+      setError("이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+    await guarded(async () => {
+      const { token: nextToken } = await api.signup(authEmail, authPassword, authNickname || undefined);
+      setToken(nextToken);
+      await syncAll(nextToken);
+      showToast("회원가입 완료");
+    });
+  };
+
+  if (!token) {
+    return (
+      <main className="page authPage">
+        <div className="bgMesh" />
+        <section className="authPanel">
+          <p className="eyebrow">Inryuk Office</p>
+          <h1>로그인</h1>
+          <p className="small">계정으로 로그인하면 메인 게임 페이지로 이동합니다.</p>
+
+          <div className="authSwitch">
+            <button className={authMode === "LOGIN" ? "active" : ""} onClick={() => setAuthMode("LOGIN")}>
+              로그인
+            </button>
+            <button className={authMode === "SIGNUP" ? "active" : ""} onClick={() => setAuthMode("SIGNUP")}>
+              회원가입
+            </button>
+          </div>
+
+          <input
+            className="input"
+            type="email"
+            placeholder="email@example.com"
+            value={authEmail}
+            onChange={(e) => setAuthEmail(e.target.value)}
+          />
+          <input
+            className="input"
+            type="password"
+            placeholder="비밀번호 (6자 이상)"
+            value={authPassword}
+            onChange={(e) => setAuthPassword(e.target.value)}
+          />
+          {authMode === "SIGNUP" && (
+            <input className="input" placeholder="닉네임 (선택)" value={authNickname} onChange={(e) => setAuthNickname(e.target.value)} />
+          )}
+
+          {error && <div className="toast error">{error}</div>}
+          <button className="authSubmit" disabled={loading} onClick={() => (authMode === "LOGIN" ? handleLogin() : handleSignup())}>
+            {authMode === "LOGIN" ? "로그인" : "회원가입"}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       <div className="bgMesh" />
@@ -242,15 +341,22 @@ export default function App() {
           </div>
           <div className="actions">
             <button
-              onClick={() =>
-                guarded(async () => {
-                  const g = await api.guestAuth();
-                  setToken(g.token);
-                  showToast("Guest created");
-                })
-              }
+              onClick={() => {
+                setToken(null);
+                setProfile(undefined);
+                setOffers([]);
+                setMercs([]);
+                setLocations([]);
+                setDispatch(null);
+                setPromotions([]);
+                setRecipes([]);
+                setCraftJobs([]);
+                setEquips([]);
+                setBattle(null);
+                showToast("로그아웃");
+              }}
             >
-              Guest Start
+              Logout
             </button>
             <button
               disabled={!token || loading}
@@ -465,6 +571,16 @@ export default function App() {
               <p className="small">
                 G{o.grade} | {o.roleTag}
               </p>
+              <div className="offerTalentRow">
+                <span className="offerTalentLabel">Talent</span>
+                {o.talentName ? (
+                  <span className="offerTalentTag" style={talentBadgeStyle(o.talentTag)}>
+                    {o.talentName}
+                  </span>
+                ) : (
+                  <span className="offerTalentNone">None</span>
+                )}
+              </div>
               <p>{o.traitLine}</p>
               <p className="small">Cost C{o.recruitCostCredits}</p>
               <button

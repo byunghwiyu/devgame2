@@ -27,6 +27,10 @@ async function req<T>(path: string, opts: RequestInit = {}, token?: string): Pro
 }
 
 export const api = {
+  signup: (email: string, password: string, nickname?: string) =>
+    req<{ token: string }>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password, nickname }) }),
+  login: (email: string, password: string) =>
+    req<{ token: string }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   guestAuth: () => req<{ token: string }>("/auth/guest", { method: "POST", body: "{}" }),
   profile: (token: string) => req<ProfileData>("/profile", { method: "GET" }, token),
   offers: (token: string) => req<OfferCard[]>("/offers", { method: "GET" }, token),

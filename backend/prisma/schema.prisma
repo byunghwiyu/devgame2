@@ -9,6 +9,9 @@ datasource db {
 
 model User {
   id          String   @id @default(uuid()) @db.Uuid
+  email       String?  @unique @db.VarChar(191)
+  passwordHash String? @map("password_hash")
+  nickname    String?  @db.VarChar(50)
   credits     Int      @default(1000)
   materialA   Int      @default(0) @map("material_a")
   materialB   Int      @default(0) @map("material_b")

@@ -3,7 +3,7 @@ import { ECONOMY_CONFIG } from "../config/economy.js";
 import { dataRegistry } from "../data/registry.js";
 import { requireUserId } from "../plugins/auth.js";
 import { prisma } from "../plugins/prisma.js";
-import { createOfferTemplateId, makeSeed } from "../services/game.js";
+import { createOfferTemplateId, makeSeed, previewTalentTagFromSeed } from "../services/game.js";
 
 async function refillOffers(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -52,6 +52,8 @@ export async function offerRoutes(app: FastifyInstance) {
       ok: true,
       data: offers.map((o) => {
         const t = dataRegistry.getTemplate(o.templateId);
+        const talentTag = previewTalentTagFromSeed(o.seed);
+        const talent = dataRegistry.getTalent(talentTag);
         return {
           slotIndex: o.slotIndex,
           templateId: o.templateId,
@@ -60,6 +62,8 @@ export async function offerRoutes(app: FastifyInstance) {
           roleTag: t.roleTag,
           recruitCostCredits: t.recruitCostCredits,
           traitLine: t.traitLine,
+          talentTag,
+          talentName: talent?.name ?? null,
           expiresAt: o.expiresAt,
         };
       }),

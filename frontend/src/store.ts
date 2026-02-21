@@ -5,7 +5,7 @@ type AuthState = {
   setToken: (token: string | null) => void;
 };
 
-const TOKEN_KEY = "inryuk_guest_token";
+const TOKEN_KEY = "inryuk_auth_token";
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: localStorage.getItem(TOKEN_KEY),
