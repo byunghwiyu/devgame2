@@ -8,3 +8,4 @@ activeManaThresholdPct,1.00,active skill mana threshold
 logKeepCount,30,battle log retention count
 maxPartySize,3,maximum deployed units
 teamSlotCount,4,team modal slot count
+talentAssignChance,0.35,recruit talent assignment chance

@@ -5,13 +5,29 @@ import { dataRegistry, weightedPick } from "../data/registry.js";
 
 export function calcMercPower(merc: Mercenary, baseStat: number, equipBonus: number): number {
   const gradeMul = ECONOMY_CONFIG.gradeMultiplier[merc.grade] ?? 1;
+  const talentMul = calcTalentPowerMultiplier(merc.talentTag);
   const p =
     baseStat *
     (1 + merc.level * ECONOMY_CONFIG.levelPowerScale) *
     gradeMul *
     (1 + merc.promotionBonus) *
-    (1 + equipBonus);
+    (1 + equipBonus) *
+    talentMul;
   return Math.max(1, Math.floor(p));
+}
+
+function calcTalentPowerMultiplier(talentTag?: string | null): number {
+  const talent = dataRegistry.getTalent(talentTag);
+  if (!talent) return 1;
+  const weightedDelta =
+    talent.hpPct * 0.35 +
+    talent.staminaPct * 0.1 +
+    talent.agilityPct * 0.15 +
+    talent.intelligencePct * 0.15 +
+    talent.strengthPct * 0.15 +
+    talent.attackPct * 0.06 +
+    talent.defensePct * 0.04;
+  return Math.max(0.7, 1 + weightedDelta);
 }
 
 export function calcEquipBonus(equipments: Equipment[]): number {

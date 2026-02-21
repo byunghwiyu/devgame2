@@ -311,6 +311,23 @@ button:disabled {
   gap: 6px;
 }
 
+.mercNameLine {
+  margin-bottom: 4px;
+}
+
+.talentTagBtn {
+  border: 1px solid #81c5ff;
+  background: rgba(28, 64, 98, 0.55);
+  color: #d8efff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 2px 9px;
+}
+
+.talentTagBtn.small {
+  padding: 1px 8px;
+}
+
 .fieldLayout {
   display: grid;
   gap: 10px;
@@ -752,10 +769,20 @@ button:disabled {
   border: 1px solid #c9c9c9;
   border-radius: 10px;
   background: #636363;
+  cursor: pointer;
 }
 
 .mercPickName {
   font-weight: 700;
+}
+
+.mercPickNameWrap {
+  display: grid;
+  gap: 5px;
+}
+
+.mercPickTalentWrap {
+  display: inline-flex;
 }
 
 .mercPickMeta {
@@ -778,6 +805,16 @@ button:disabled {
   place-items: center;
   font-style: normal;
   background: #565656;
+}
+
+.talentModal {
+  display: grid;
+  gap: 10px;
+}
+
+.talentModal p {
+  margin: 0;
+  line-height: 1.5;
 }
 
 @keyframes idleFloat {

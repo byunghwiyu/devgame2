@@ -17,6 +17,7 @@ export async function mercenaryRoutes(app: FastifyInstance) {
       const equipped = equips.filter((e) => e.equippedMercId === m.id);
       const equipBonus = calcEquipBonus(equipped);
       const power = calcMercPower(m, tpl.baseStat, equipBonus);
+      const talent = dataRegistry.getTalent(m.talentTag);
       return {
         id: m.id,
         templateId: m.templateId,
@@ -30,6 +31,9 @@ export async function mercenaryRoutes(app: FastifyInstance) {
         isDispatched: m.isDispatched,
         power,
         traitLine: tpl.traitLine,
+        talentTag: m.talentTag,
+        talentName: talent?.name ?? null,
+        talentDescription: talent?.description ?? null,
       };
     });
 

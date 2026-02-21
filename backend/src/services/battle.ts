@@ -283,6 +283,20 @@ class BattleService {
     return next;
   }
 
+  private applyTalent(stats: RuntimeStats, talentTag?: string | null): RuntimeStats {
+    const talent = dataRegistry.getTalent(talentTag);
+    if (!talent) return stats;
+    const next = { ...stats };
+    next.maxHp = Math.max(1, Math.floor(next.maxHp * (1 + talent.hpPct)));
+    next.stamina = Math.max(1, Math.floor(next.stamina * (1 + talent.staminaPct)));
+    next.agility = Math.max(1, Math.floor(next.agility * (1 + talent.agilityPct)));
+    next.intelligence = Math.max(1, Math.floor(next.intelligence * (1 + talent.intelligencePct)));
+    next.strength = Math.max(1, Math.floor(next.strength * (1 + talent.strengthPct)));
+    next.attack = Math.max(1, Math.floor(next.attack * (1 + talent.attackPct)));
+    next.defense = Math.max(1, Math.floor(next.defense * (1 + talent.defensePct)));
+    return next;
+  }
+
   private toMercCombatant(merc: Mercenary, equipments: Equipment[]): RuntimeCombatant {
     const base = dataRegistry.getCombatUnit("MERC_TEMPLATE", merc.templateId);
     const skills = dataRegistry.getCombatSkills("MERC_TEMPLATE", merc.templateId);
@@ -294,7 +308,8 @@ class BattleService {
     stats.maxMana = Math.floor(stats.maxMana * (1 + merc.level * 0.02));
     stats.attack = Math.floor(stats.attack * (1 + merc.level * 0.04 + merc.promotionBonus));
     stats.defense = Math.floor(stats.defense * (1 + merc.level * 0.03 + merc.promotionBonus));
-    const adjusted = this.applyPassives(stats, skills);
+    const withTalent = this.applyTalent(stats, merc.talentTag);
+    const adjusted = this.applyPassives(withTalent, skills);
     return {
       runtimeId: crypto.randomBytes(5).toString("hex"),
       side: "ALLY",

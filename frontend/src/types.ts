@@ -41,6 +41,9 @@ export type MercenaryView = {
   isDispatched: boolean;
   power: number;
   traitLine: string;
+  talentTag?: string | null;
+  talentName?: string | null;
+  talentDescription?: string | null;
 };
 
 export type LocationRow = {

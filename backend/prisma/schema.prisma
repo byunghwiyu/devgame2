@@ -34,6 +34,7 @@ model Mercenary {
   exp             Int      @default(0)
   grade           Int
   roleTag         String   @map("role_tag")
+  talentTag       String?  @map("talent_tag")
   promotionRoute  String?  @map("promotion_route")
   promotionBonus  Float    @default(0) @map("promotion_bonus")
   isDispatched    Boolean  @default(false) @map("is_dispatched")

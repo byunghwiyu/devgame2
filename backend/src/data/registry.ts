@@ -120,6 +120,20 @@ export type MonsterDropRow = {
   statValue: number;
 };
 
+export type TalentRow = {
+  talentTag: string;
+  name: string;
+  description: string;
+  rollWeight: number;
+  hpPct: number;
+  staminaPct: number;
+  agilityPct: number;
+  intelligencePct: number;
+  strengthPct: number;
+  attackPct: number;
+  defensePct: number;
+};
+
 export type LevelCurveRow = { level: number; expToNext: number };
 
 export type PromotionRule = {
@@ -157,6 +171,7 @@ class DataRegistry {
   defineTable: DefineRow[] = [];
   exploreTexts: ExploreTextRow[] = [];
   monsterDrops: MonsterDropRow[] = [];
+  talents: TalentRow[] = [];
 
   private loaded = false;
 
@@ -300,6 +315,20 @@ class DataRegistry {
       statValue: asInt(r.statValue),
     }));
 
+    this.talents = parseCsvFile(path.join(dataDir, "talents.csv")).map((r) => ({
+      talentTag: r.talentTag,
+      name: r.name,
+      description: r.description ?? "",
+      rollWeight: asFloat(r.rollWeight || "1"),
+      hpPct: asFloat(r.hpPct || "0"),
+      staminaPct: asFloat(r.staminaPct || "0"),
+      agilityPct: asFloat(r.agilityPct || "0"),
+      intelligencePct: asFloat(r.intelligencePct || "0"),
+      strengthPct: asFloat(r.strengthPct || "0"),
+      attackPct: asFloat(r.attackPct || "0"),
+      defensePct: asFloat(r.defensePct || "0"),
+    }));
+
     this.validate();
     this.loaded = true;
 
@@ -332,6 +361,13 @@ class DataRegistry {
     if (this.monsterDrops.length < 1) throw new Error("monster_drops.csv must have rows");
     if (this.defineTable.length < 1) throw new Error("define_table.csv must have rows");
     if (this.exploreTexts.length < 1) throw new Error("explore_texts.csv must have rows");
+    if (this.talents.length < 1) throw new Error("talents.csv must have rows");
+    const talentSet = new Set<string>();
+    for (const t of this.talents) {
+      if (!t.talentTag) throw new Error("talents.csv talentTag empty");
+      if (talentSet.has(t.talentTag)) throw new Error(`talents.csv duplicated talentTag: ${t.talentTag}`);
+      talentSet.add(t.talentTag);
+    }
   }
 
   ensureLoaded(): void {
@@ -403,6 +439,20 @@ class DataRegistry {
     return this.monsterDrops.filter((r) => r.monsterTemplateId === monsterTemplateId);
   }
 
+  getTalent(talentTag?: string | null): TalentRow | null {
+    this.ensureLoaded();
+    if (!talentTag) return null;
+    return this.talents.find((t) => t.talentTag === talentTag) ?? null;
+  }
+
+  rollTalentTag(): string | null {
+    this.ensureLoaded();
+    if (this.talents.length < 1) return null;
+    const chance = clamp01(this.getDefineValue("talentAssignChance", 0));
+    if (Math.random() > chance) return null;
+    return weightedPick(this.talents, (t) => t.rollWeight).talentTag;
+  }
+
   getExpToNext(level: number): number {
     this.ensureLoaded();
     return this.levelCurve.find((r) => r.level === level)?.expToNext ?? Number.MAX_SAFE_INTEGER;
@@ -420,4 +470,8 @@ export function weightedPick<T>(rows: T[], weightOf: (x: T) => number): T {
     if (roll <= 0) return row;
   }
   return rows[rows.length - 1];
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
 }

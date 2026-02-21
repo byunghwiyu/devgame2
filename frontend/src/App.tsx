@@ -73,6 +73,7 @@ export default function App() {
 
   const [battle, setBattle] = useState<BattleState | null>(null);
   const [battlePageOpen, setBattlePageOpen] = useState(false);
+  const [talentPopup, setTalentPopup] = useState<{ name: string; description: string } | null>(null);
 
   const [toast, setToast] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -207,6 +208,11 @@ export default function App() {
     setPickerOpen(false);
   };
 
+  const openTalentPopup = (merc: MercenaryView) => {
+    if (!merc.talentName || !merc.talentDescription) return;
+    setTalentPopup({ name: merc.talentName, description: merc.talentDescription });
+  };
+
   const clearTeamSlots = () => ensureTeamSlotSize(battleConfig.teamSlotCount);
 
   const sendTeam = async () => {
@@ -307,7 +313,7 @@ export default function App() {
               <div>
                 <h2>{battle.locationName}</h2>
                 <p className="small">
-                  Wave {battle.waveIndex} · {phaseLabel(battle.phase)} · Retry {battle.retryCount} · Clear {battle.clearCount}
+                  Wave {battle.waveIndex} | {phaseLabel(battle.phase)} | Retry {battle.retryCount} | Clear {battle.clearCount}
                 </p>
               </div>
               <button onClick={() => setBattlePageOpen(false)}>Back</button>
@@ -457,7 +463,7 @@ export default function App() {
               <div className="badge">SLOT {o.slotIndex + 1}</div>
               <h3>{o.name}</h3>
               <p className="small">
-                G{o.grade} · {o.roleTag}
+                G{o.grade} | {o.roleTag}
               </p>
               <p>{o.traitLine}</p>
               <p className="small">Cost C{o.recruitCostCredits}</p>
@@ -501,8 +507,15 @@ export default function App() {
               {mercs.map((m) => (
                 <li key={m.id}>
                   <div>
-                    <strong>{m.name}</strong> Lv.{m.level} G{m.grade} ({m.roleTag})
-                    <div className="small">Power {m.power} · EXP {m.exp} · Bonus {Math.round(m.promotionBonus * 100)}%</div>
+                    <div className="mercNameLine">
+                      <strong>{m.name}</strong> Lv.{m.level} G{m.grade} ({m.roleTag})
+                    </div>
+                    {m.talentName && m.talentDescription && (
+                      <button className="talentTagBtn" onClick={() => openTalentPopup(m)}>
+                        {m.talentName}
+                      </button>
+                    )}
+                    <div className="small">Power {m.power} | EXP {m.exp} | Bonus {Math.round(m.promotionBonus * 100)}%</div>
                   </div>
                   <div className="rowBtn">
                     <button
@@ -540,7 +553,7 @@ export default function App() {
               {promotions.map((p) => (
                 <li key={p.id}>
                   <div>
-                    #{p.mercenaryId.slice(0, 6)} · {p.route} · G{p.gradeFrom}→G{p.gradeTo} · {p.status}
+                    #{p.mercenaryId.slice(0, 6)} | {p.route} | G{p.gradeFrom}{"->"}G{p.gradeTo} | {p.status}
                   </div>
                   <button
                     disabled={!token || loading || p.status !== "IN_PROGRESS"}
@@ -569,9 +582,9 @@ export default function App() {
               {recipes.map((r) => (
                 <li key={r.recipeId}>
                   <div>
-                    <strong>{r.recipeId}</strong> · {r.resultEquipType} G{r.resultGrade} +{r.statValue}
+                    <strong>{r.recipeId}</strong> | {r.resultEquipType} G{r.resultGrade} +{r.statValue}
                     <div className="small">
-                      Cost C{r.costCredits} / A{r.costMaterialA} / B{r.costMaterialB} · {r.craftSeconds}s
+                      Cost C{r.costCredits} / A{r.costMaterialA} / B{r.costMaterialB} | {r.craftSeconds}s
                     </div>
                   </div>
                   <button
@@ -594,7 +607,7 @@ export default function App() {
               {craftJobs.map((j) => (
                 <li key={j.id}>
                   <div>
-                    {j.recipeId} · {j.status}
+                    {j.recipeId} | {j.status}
                   </div>
                   <button
                     disabled={!token || loading || j.status !== "IN_PROGRESS"}
@@ -707,17 +720,44 @@ export default function App() {
             <h3>Select Mercenary</h3>
             <div className="mercPickList">
               {pickerMercs.map((m) => (
-                <button key={m.id} className="mercPickRow" onClick={() => assignMercToSlot(m.id)}>
-                  <span className="mercPickName">{m.name}</span>
+                <div
+                  key={m.id}
+                  className="mercPickRow"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => assignMercToSlot(m.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      assignMercToSlot(m.id);
+                    }
+                  }}
+                >
+                  <span className="mercPickNameWrap">
+                    <span className="mercPickName">{m.name}</span>
+                    {m.talentName && m.talentDescription && (
+                      <span className="mercPickTalentWrap">
+                        <button
+                          className="talentTagBtn small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTalentPopup(m);
+                          }}
+                        >
+                          {m.talentName}
+                        </button>
+                      </span>
+                    )}
+                  </span>
                   <span className="mercPickMeta">
-                    Lv.{m.level} · G{m.grade}
+                    Lv.{m.level} | G{m.grade}
                   </span>
                   <span className="mercEquipStrip">
                     {(equipByMerc.get(m.id) ?? []).map((e) => (
                       <i key={e.id}>{equipIcon(e.type)}</i>
                     ))}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
             <div className="teamModalBottom">
@@ -726,6 +766,19 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {talentPopup && (
+        <div className="modalBackdrop">
+          <div className="modalPanel talentModal">
+            <h3>{talentPopup.name}</h3>
+            <p>{talentPopup.description}</p>
+            <div className="teamModalBottom">
+              <button onClick={() => setTalentPopup(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+

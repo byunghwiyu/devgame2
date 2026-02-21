@@ -21,6 +21,7 @@ export async function recruitRoutes(app: FastifyInstance) {
     if (!user) return reply.code(404).send({ ok: false, error: "USER_NOT_FOUND" });
 
     const template = dataRegistry.getTemplate(offer.templateId);
+    const talentTag = dataRegistry.rollTalentTag();
     if (user.credits < template.recruitCostCredits) {
       return reply.code(400).send({ ok: false, error: "NOT_ENOUGH_CREDITS" });
     }
@@ -38,6 +39,7 @@ export async function recruitRoutes(app: FastifyInstance) {
           grade: template.grade,
           level: 1,
           exp: 0,
+          talentTag,
           promotionBonus: 0,
           isDispatched: false,
         },

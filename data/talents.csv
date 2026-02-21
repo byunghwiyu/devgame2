@@ -1,0 +1,2 @@
+talentTag,name,description,rollWeight,hpPct,staminaPct,agilityPct,intelligencePct,strengthPct,attackPct,defensePct
+BOOKWORM,Bookworm,INT +10% / STA -5% / AGI -5%,100,0,-0.05,-0.05,0.10,0,0,0
