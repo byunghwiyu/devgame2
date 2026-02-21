@@ -26,6 +26,7 @@ export async function dispatchRoutes(app: FastifyInstance) {
     if (existing) return reply.code(400).send({ ok: false, error: "DISPATCH_ALREADY_IN_PROGRESS" });
 
     const location = dataRegistry.getLocation(locationId);
+    if (!location.isOpen) return reply.code(400).send({ ok: false, error: "LOCATION_NOT_OPEN" });
     const mercs = await prisma.mercenary.findMany({ where: { userId, id: { in: partyIds } } });
     if (mercs.length !== partyIds.length) return reply.code(400).send({ ok: false, error: "INVALID_PARTY_MEMBERS" });
     if (mercs.some((m) => m.isDispatched)) return reply.code(400).send({ ok: false, error: "MERC_ALREADY_DISPATCHED" });

@@ -1,0 +1,10 @@
+key,value,description
+turnSeconds,1.8,auto battle turn interval seconds
+exploreSeconds,1.5,explore phase interval seconds
+lootSeconds,1.2,loot phase interval seconds
+manaRegenBasePct,0.10,mana regen per turn
+manaRegenIntPct,0.10,int based mana bonus per turn
+activeManaThresholdPct,1.00,active skill mana threshold
+logKeepCount,30,battle log retention count
+maxPartySize,3,maximum deployed units
+teamSlotCount,4,team modal slot count

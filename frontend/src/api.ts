@@ -1,5 +1,7 @@
 ﻿import type {
   ApiEnvelope,
+  BattleConfig,
+  BattleState,
   CraftJob,
   DispatchStatus,
   Equipment,
@@ -53,4 +55,14 @@ export const api = {
     req<unknown>("/equip", { method: "POST", body: JSON.stringify({ mercId, equipId, slotIndex }) }, token),
   unequip: (token: string, equipId: string) =>
     req<unknown>("/unequip", { method: "POST", body: JSON.stringify({ equipId }) }, token),
+  battleStart: (token: string, locationId: string, partyIds: string[]) =>
+    req<BattleState>("/battle/start", { method: "POST", body: JSON.stringify({ locationId, partyIds }) }, token),
+  battleConfig: () => req<BattleConfig>("/battle/config", { method: "GET" }),
+  battleCurrent: (token: string) => req<BattleState | null>("/battle/current", { method: "GET" }, token),
+  battleState: (token: string, sessionId: string) =>
+    req<BattleState>(`/battle/state?sessionId=${encodeURIComponent(sessionId)}`, { method: "GET" }, token),
+  battleRetreat: (token: string, sessionId: string) =>
+    req<BattleState>("/battle/retreat", { method: "POST", body: JSON.stringify({ sessionId }) }, token),
+  battleClose: (token: string, sessionId: string) =>
+    req<{ closed: boolean }>("/battle/close", { method: "POST", body: JSON.stringify({ sessionId }) }, token),
 };

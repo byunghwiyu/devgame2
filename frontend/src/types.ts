@@ -52,6 +52,10 @@ export type LocationRow = {
   baseExpReward: number;
   materialAReward: number;
   materialBReward: number;
+  description: string;
+  imageUrl: string;
+  monsters: string[];
+  isOpen: boolean;
 };
 
 export type DispatchStatus = {
@@ -102,4 +106,49 @@ export type Equipment = {
   statValue: number;
   equippedMercId?: string | null;
   slotIndex?: number | null;
+};
+
+export type BattleUnitView = {
+  id: string;
+  name: string;
+  spriteUrl: string;
+  hp: number;
+  maxHp: number;
+  mana: number;
+  maxMana: number;
+  alive: boolean;
+};
+
+export type BattleConfig = {
+  maxPartySize: number;
+  teamSlotCount: number;
+};
+
+export type BattleState = {
+  id: string;
+  status: "IN_PROGRESS" | "RETREAT";
+  phase: "EXPLORE" | "BATTLE" | "LOOT";
+  gaugePercent: number;
+  locationId: string;
+  locationName: string;
+  locationImageUrl: string;
+  waveIndex: number;
+  allies: BattleUnitView[];
+  enemies: BattleUnitView[];
+  logs: string[];
+  reward: {
+    credits: number;
+    exp: number;
+    materialA: number;
+    materialB: number;
+  };
+  retryCount: number;
+  clearCount: number;
+  droppedItems: Array<{
+    itemId: string;
+    itemName: string;
+    equipType: string;
+    grade: number;
+    statValue: number;
+  }>;
 };

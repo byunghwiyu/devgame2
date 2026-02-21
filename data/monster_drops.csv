@@ -1,0 +1,8 @@
+monsterTemplateId,itemId,itemName,dropRate,equipType,grade,statValue
+MON_WOLF,ITM_WOLF_FANG,Dire Fang,0.35,weapon,1,5
+MON_GOBLIN,ITM_GOBLIN_KNIFE,Rust Knife,0.30,weapon,1,4
+MON_SLIME,ITM_SLIME_CORE,Slime Core,0.28,accessory,1,4
+MON_WRAITH,ITM_WRAITH_CLOTH,Wraith Cloth,0.25,armor,2,8
+MON_GOLEM,ITM_GOLEM_PLATE,Golem Plate,0.24,armor,2,9
+MON_SERPENT,ITM_SERPENT_SCALE,Serpent Scale,0.22,accessory,2,8
+MON_FLAME_LORD,ITM_INFERNO_CHIP,Inferno Chip,0.18,extra,3,13

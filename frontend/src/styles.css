@@ -311,6 +311,484 @@ button:disabled {
   gap: 6px;
 }
 
+.fieldLayout {
+  display: grid;
+  gap: 10px;
+}
+
+.fieldPartyPanel {
+  display: grid;
+  gap: 10px;
+}
+
+.fieldStatusLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fieldStack {
+  display: grid;
+  gap: 10px;
+}
+
+.fieldCard {
+  position: relative;
+  border: 1px solid #5677a6;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0d1626;
+}
+
+.fieldCard.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(255, 196, 73, 0.4) inset;
+}
+
+.fieldThumb {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.1) contrast(1.05);
+}
+
+.fieldOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: space-between;
+  padding: 12px;
+  background: linear-gradient(90deg, rgba(14, 20, 31, 0.92) 0%, rgba(14, 20, 31, 0.66) 55%, rgba(14, 20, 31, 0.12) 100%);
+}
+
+.fieldTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fieldTop h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.fieldTop p {
+  margin: 6px 0 0;
+  max-width: 440px;
+  color: #d7e5ff;
+  font-size: 0.9rem;
+}
+
+.fieldBadge {
+  border: 1px solid #486b98;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.fieldBadge.ready {
+  color: #b7ffdf;
+  border-color: #1f8f63;
+  background: rgba(31, 143, 99, 0.2);
+}
+
+.fieldBadge.soon {
+  color: #ffe0a6;
+  border-color: #9d6f24;
+  background: rgba(157, 111, 36, 0.25);
+}
+
+.fieldMonsters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.monsterChip {
+  border: 1px solid #708db7;
+  background: rgba(8, 18, 31, 0.82);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  padding: 3px 8px;
+}
+
+.fieldMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #d5e6ff;
+  font-size: 0.84rem;
+}
+
+.fieldAction {
+  display: flex;
+  gap: 8px;
+}
+
+.fieldCurrentBattle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.fieldCurrentMain {
+  flex: 1;
+  min-height: 120px;
+  border: 1px solid #8ea7cb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background-size: cover;
+  background-position: center right;
+  background-color: #2f2f2f;
+  position: relative;
+  overflow: hidden;
+}
+
+.fieldCurrentMain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(30, 30, 30, 0.9) 0%, rgba(30, 30, 30, 0.75) 55%, rgba(30, 30, 30, 0.15) 100%);
+}
+
+.fieldCurrentMain > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fieldCurrentMain h2 {
+  margin: 0 0 10px;
+}
+
+.fieldCurrentParty {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fieldCurrentUnit {
+  width: 42px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.fieldCurrentUnit span {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  display: grid;
+  place-items: center;
+  background: rgba(40, 40, 40, 0.88);
+  font-weight: 800;
+}
+
+.fieldCurrentImg {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: rgba(40, 40, 40, 0.88);
+}
+
+.fieldCurrentUnit em {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  display: block;
+  background: linear-gradient(90deg, #f87171, #22c55e);
+}
+
+.fieldBattlePage {
+  display: grid;
+  gap: 10px;
+}
+
+.battlePanel {
+  display: grid;
+  gap: 10px;
+}
+
+.battleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.battleHeader h2 {
+  margin: 0;
+}
+
+.battleArena {
+  position: relative;
+  min-height: 330px;
+  border: 1px solid #6a89b0;
+  border-radius: 12px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+
+.battleArena::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 10, 16, 0.35), rgba(5, 10, 16, 0.15) 40%, rgba(5, 10, 16, 0.55));
+}
+
+.enemyRow,
+.allyRow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  z-index: 2;
+}
+
+.enemyRow {
+  top: 118px;
+}
+
+.allyRow {
+  bottom: 30px;
+}
+
+.sprite {
+  width: 58px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  animation: idleFloat 1.6s ease-in-out infinite alternate;
+}
+
+.sprite.enemy {
+  animation-delay: 0.3s;
+}
+
+.sprite.dead {
+  opacity: 0.35;
+  transform: translateY(8px);
+  animation: none;
+}
+
+.spriteIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #95b2d8;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: rgba(11, 21, 35, 0.86);
+}
+
+.sprite.enemy .spriteIcon {
+  border-color: #d39a9a;
+}
+
+.spriteImg {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #95b2d8;
+  background: rgba(11, 21, 35, 0.86);
+}
+
+.sprite.enemy .spriteImg {
+  border-color: #d39a9a;
+}
+
+.hpBar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.44);
+  overflow: hidden;
+}
+
+.hpBar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.turnGauge {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.turnGauge span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.3s linear;
+}
+
+.turnGauge.mini {
+  height: 6px;
+  max-width: 340px;
+}
+
+.battleLog {
+  max-height: 144px;
+  overflow: auto;
+  border: 1px solid #46648f;
+  border-radius: 10px;
+  background: rgba(6, 13, 22, 0.76);
+  padding: 8px 10px;
+}
+
+.battleLog p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.battleBottom {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dropLine {
+  border: 1px solid #46648f;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(6, 13, 22, 0.76);
+  color: #d4e5ff;
+  font-size: 0.82rem;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.58);
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+
+.modalPanel {
+  width: min(760px, 100%);
+  border: 1px solid #6a86af;
+  border-radius: 12px;
+  background: #484848;
+  color: #f1f1f1;
+  padding: 12px;
+}
+
+.modalPanel h3 {
+  margin: 0 0 10px;
+}
+
+.teamModal {
+  display: grid;
+  gap: 10px;
+}
+
+.teamSlots {
+  display: grid;
+  gap: 8px;
+}
+
+.teamSlot {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid #c9c9c9;
+  background: #5a5a5a;
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.teamModalButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.teamModalBottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teamModalBottom button {
+  flex: 1;
+}
+
+.pickerModal {
+  display: grid;
+  gap: 10px;
+}
+
+.mercPickList {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.mercPickRow {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  align-items: center;
+  text-align: left;
+  gap: 8px;
+  border: 1px solid #c9c9c9;
+  border-radius: 10px;
+  background: #636363;
+}
+
+.mercPickName {
+  font-weight: 700;
+}
+
+.mercPickMeta {
+  color: #ffd281;
+  font-size: 0.82rem;
+}
+
+.mercEquipStrip {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.mercEquipStrip i {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  background: #565656;
+}
+
+@keyframes idleFloat {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
 @media (max-width: 980px) {
   .statGrid,
   .tabNav,
@@ -321,6 +799,10 @@ button:disabled {
 
   .heroHead {
     flex-direction: column;
+  }
+
+  .fieldThumb {
+    height: 190px;
   }
 }
 
@@ -347,5 +829,45 @@ button:disabled {
 
   .actions button {
     flex: 1;
+  }
+
+  .fieldTop {
+    flex-direction: column;
+  }
+
+  .fieldAction {
+    width: 100%;
+  }
+
+  .fieldAction button {
+    flex: 1;
+  }
+
+  .fieldThumb {
+    height: 210px;
+  }
+
+  .enemyRow {
+    top: 102px;
+  }
+
+  .battleBottom {
+    width: 100%;
+  }
+
+  .battleBottom button {
+    flex: 1;
+  }
+
+  .teamModalButtons {
+    grid-template-columns: 1fr;
+  }
+
+  .mercPickRow {
+    grid-template-columns: 1fr;
+  }
+
+  .mercEquipStrip {
+    justify-content: flex-start;
   }
 }

@@ -13,6 +13,7 @@ import { dispatchRoutes } from "./routes/dispatch.js";
 import { promotionRoutes } from "./routes/promotion.js";
 import { craftRoutes } from "./routes/craft.js";
 import { equipmentRoutes } from "./routes/equipment.js";
+import { battleRoutes } from "./routes/battle.js";
 
 const app = Fastify({ logger: true });
 
@@ -38,6 +39,7 @@ await app.register(dispatchRoutes);
 await app.register(promotionRoutes);
 await app.register(craftRoutes);
 await app.register(equipmentRoutes);
+await app.register(battleRoutes);
 
 const start = async () => {
   try {

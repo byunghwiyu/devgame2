@@ -1,0 +1,12 @@
+entityType,entityId,name,attackRangeType,damageType,maxHp,maxMana,stamina,agility,intelligence,strength,attack,defense,evasion,critChance,critDamage,lifeSteal,counter,hpRegen,thornPhysical,thornMagical,expGain,healPower,spriteUrl
+MERC_TEMPLATE,CHAR_LABORER_A,Front Guard,melee,physical,185,100,48,28,20,34,30,26,0.08,0.10,1.60,0.05,0.10,8,3,0,1.00,1.00,/sprites/char_laborer_a.svg
+MERC_TEMPLATE,CHAR_LABORER_B,Assault Striker,melee,physical,155,100,32,38,18,40,36,18,0.12,0.16,1.75,0.08,0.06,5,1,0,1.00,1.00,/sprites/char_laborer_b.svg
+MERC_TEMPLATE,CHAR_SPECIAL_A,Field Captain,ranged,magic,165,110,35,30,40,22,28,20,0.10,0.12,1.65,0.04,0.05,6,0,2,1.10,1.25,/sprites/char_special_a.svg
+MERC_TEMPLATE,CHAR_HERO_A,Legend Foreman,melee,chaos,230,120,55,32,30,46,44,30,0.10,0.22,1.90,0.12,0.12,10,4,4,1.20,1.10,/sprites/char_hero_a.svg
+MONSTER_TEMPLATE,MON_WOLF,Dire Wolf,melee,physical,12,40,8,10,4,8,4,1,0.00,0.00,1.20,0.00,0.00,0,0,0,1.00,0.00,/sprites/mon_wolf.svg
+MONSTER_TEMPLATE,MON_GOBLIN,Goblin Raider,melee,physical,105,100,22,32,12,30,26,14,0.10,0.10,1.55,0.00,0.00,2,0,0,1.00,0.00,/sprites/mon_goblin.svg
+MONSTER_TEMPLATE,MON_SLIME,Arc Slime,ranged,magic,120,100,20,24,28,10,20,16,0.05,0.08,1.50,0.00,0.00,4,0,2,1.00,0.00,/sprites/mon_slime.svg
+MONSTER_TEMPLATE,MON_WRAITH,Night Wraith,ranged,magic,150,120,26,26,36,16,30,20,0.10,0.14,1.70,0.00,0.00,5,0,3,1.00,0.00,/sprites/mon_wraith.svg
+MONSTER_TEMPLATE,MON_GOLEM,Stone Golem,melee,physical,210,100,40,14,8,40,32,34,0.02,0.06,1.60,0.00,0.08,12,5,0,1.00,0.00,/sprites/mon_golem.svg
+MONSTER_TEMPLATE,MON_SERPENT,Sea Serpent,ranged,chaos,180,120,34,30,34,24,34,24,0.08,0.16,1.80,0.00,0.06,8,2,3,1.00,0.00,/sprites/mon_serpent.svg
+MONSTER_TEMPLATE,MON_FLAME_LORD,Flame Lord,melee,magic,260,130,42,22,42,30,40,28,0.08,0.20,1.85,0.00,0.10,10,0,6,1.00,0.00,/sprites/mon_flame_lord.svg

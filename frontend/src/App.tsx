@@ -1,17 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { useAuthStore } from "./store";
-import type { CraftJob, DispatchStatus, Equipment, LocationRow, MercenaryView, OfferCard, ProfileData, PromotionJob, Recipe } from "./types";
+import type {
+  BattleConfig,
+  BattleState,
+  CraftJob,
+  DispatchStatus,
+  Equipment,
+  LocationRow,
+  MercenaryView,
+  OfferCard,
+  ProfileData,
+  PromotionJob,
+  Recipe,
+} from "./types";
 import "./styles.css";
 
 type Tab = "RECRUIT" | "OFFICE" | "FIELD" | "CRAFT";
 
 const tabs: Array<{ key: Tab; label: string; sub: string }> = [
-  { key: "RECRUIT", label: "모집", sub: "오퍼와 채용" },
-  { key: "OFFICE", label: "사무실", sub: "용병과 승급" },
-  { key: "FIELD", label: "현장", sub: "파티 파견" },
-  { key: "CRAFT", label: "제작", sub: "장비 운용" },
+  { key: "RECRUIT", label: "Recruit", sub: "Offers and hiring" },
+  { key: "OFFICE", label: "Office", sub: "Mercs and promotion" },
+  { key: "FIELD", label: "Field", sub: "Dungeon battle" },
+  { key: "CRAFT", label: "Craft", sub: "Gear pipeline" },
 ];
+
+const defaultBattleConfig: BattleConfig = { maxPartySize: 3, teamSlotCount: 4 };
+
+function formatLocationReward(loc: LocationRow): string {
+  return `C${loc.baseCreditReward} / EXP${loc.baseExpReward} / A${loc.materialAReward} / B${loc.materialBReward}`;
+}
+
+function hpPct(hp: number, maxHp: number): number {
+  if (maxHp <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100)));
+}
+
+function phaseLabel(phase?: BattleState["phase"]): string {
+  if (phase === "EXPLORE") return "Exploring...";
+  if (phase === "LOOT") return "Looting...";
+  return "Battle...";
+}
+
+function equipIcon(type: string): string {
+  if (type === "weapon") return "W";
+  if (type === "armor") return "A";
+  if (type === "accessory") return "R";
+  if (type === "extra") return "X";
+  return "?";
+}
 
 export default function App() {
   const { token, setToken } = useAuthStore();
@@ -25,9 +62,18 @@ export default function App() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [craftJobs, setCraftJobs] = useState<CraftJob[]>([]);
   const [equips, setEquips] = useState<Equipment[]>([]);
-  const [party, setParty] = useState<string[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedMercForEquip, setSelectedMercForEquip] = useState<string>("");
+  const [battleConfig, setBattleConfig] = useState<BattleConfig>(defaultBattleConfig);
+
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSlot, setPickerSlot] = useState<number>(0);
+  const [teamLocationId, setTeamLocationId] = useState<string>("");
+  const [teamSlots, setTeamSlots] = useState<Array<string | null>>(Array.from({ length: defaultBattleConfig.teamSlotCount }, () => null));
+
+  const [battle, setBattle] = useState<BattleState | null>(null);
+  const [battlePageOpen, setBattlePageOpen] = useState(false);
+
   const [toast, setToast] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -37,8 +83,16 @@ export default function App() {
     setTimeout(() => setToast(""), 1800);
   };
 
+  const ensureTeamSlotSize = (count: number) => {
+    setTeamSlots((prev) => {
+      const next = Array.from({ length: count }, (_, idx) => prev[idx] ?? null);
+      return next;
+    });
+  };
+
   const syncAll = async (t: string) => {
-    const [p, os, ms, ls, ds, ps, rs, cs, es] = await Promise.all([
+    const [cfg, p, os, ms, ls, ds, ps, rs, cs, es, currentBattle] = await Promise.all([
+      api.battleConfig(),
       api.profile(t),
       api.offers(t),
       api.mercenaries(t),
@@ -48,7 +102,11 @@ export default function App() {
       api.recipes(t),
       api.craftStatus(t),
       api.equipments(t),
+      api.battleCurrent(t),
     ]);
+    setBattleConfig(cfg);
+    ensureTeamSlotSize(cfg.teamSlotCount);
+
     setProfile(p);
     setOffers(os);
     setMercs(ms);
@@ -58,7 +116,8 @@ export default function App() {
     setRecipes(rs);
     setCraftJobs(cs);
     setEquips(es);
-    if (!selectedLocation && ls[0]) setSelectedLocation(ls[0].locationId);
+    setBattle(currentBattle);
+    if (!teamLocationId && ls[0]) setTeamLocationId(ls[0].locationId);
   };
 
   const guarded = async (fn: () => Promise<void>) => {
@@ -69,7 +128,7 @@ export default function App() {
       await fn();
     } catch (e) {
       setError((e as Error).message);
-      showToast(`실패: ${(e as Error).message}`);
+      showToast(`Failed: ${(e as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -83,6 +142,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  useEffect(() => {
+    if (!token || !battle || battle.status !== "IN_PROGRESS") return;
+    const timer = setInterval(async () => {
+      try {
+        const next = await api.battleState(token, battle.id);
+        setBattle(next);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    }, 700);
+    return () => clearInterval(timer);
+  }, [battle, token]);
+
   const nextReset = useMemo(() => {
     if (offers.length < 1) return "-";
     const remain = Math.max(0, Math.ceil((new Date(offers[0].expiresAt).getTime() - Date.now()) / 1000));
@@ -94,6 +166,64 @@ export default function App() {
   const inProgressPromotion = promotions.filter((p) => p.status === "IN_PROGRESS").length;
   const avgPower = mercs.length > 0 ? Math.round(mercs.reduce((sum, m) => sum + m.power, 0) / mercs.length) : 0;
 
+  const mercMap = useMemo(() => new Map(mercs.map((m) => [m.id, m])), [mercs]);
+  const equipByMerc = useMemo(() => {
+    const m = new Map<string, Equipment[]>();
+    for (const e of equips) {
+      if (!e.equippedMercId) continue;
+      if (!m.has(e.equippedMercId)) m.set(e.equippedMercId, []);
+      m.get(e.equippedMercId)!.push(e);
+    }
+    for (const [k, arr] of m.entries()) {
+      arr.sort((a, b) => (a.slotIndex ?? 99) - (b.slotIndex ?? 99));
+      m.set(k, arr.slice(0, 3));
+    }
+    return m;
+  }, [equips]);
+
+  const pickerSelectedSet = useMemo(() => {
+    const set = new Set<string>();
+    teamSlots.forEach((id, idx) => {
+      if (id && idx !== pickerSlot) set.add(id);
+    });
+    return set;
+  }, [teamSlots, pickerSlot]);
+  const pickerMercs = useMemo(() => mercs.filter((m) => !pickerSelectedSet.has(m.id)), [mercs, pickerSelectedSet]);
+
+  const openTeamModal = (locationId: string) => {
+    setTeamLocationId(locationId);
+    ensureTeamSlotSize(battleConfig.teamSlotCount);
+    setTeamModalOpen(true);
+  };
+
+  const assignMercToSlot = (mercId: string) => {
+    setTeamSlots((prev) => {
+      const next = [...prev];
+      const existsAt = next.findIndex((id, idx) => id === mercId && idx !== pickerSlot);
+      if (existsAt >= 0) next[existsAt] = null;
+      next[pickerSlot] = mercId;
+      return next;
+    });
+    setPickerOpen(false);
+  };
+
+  const clearTeamSlots = () => ensureTeamSlotSize(battleConfig.teamSlotCount);
+
+  const sendTeam = async () => {
+    if (!token) return;
+    const partyIds = teamSlots.filter((id): id is string => Boolean(id)).slice(0, battleConfig.maxPartySize);
+    if (partyIds.length < 1) {
+      showToast("Pick at least 1 merc");
+      return;
+    }
+    const started = await api.battleStart(token, teamLocationId, partyIds);
+    setBattle(started);
+    setBattlePageOpen(true);
+    setTeamModalOpen(false);
+    await syncAll(token);
+    showToast("Battle started");
+  };
+
   return (
     <main className="page">
       <div className="bgMesh" />
@@ -102,7 +232,7 @@ export default function App() {
         <div className="heroHead">
           <div>
             <p className="eyebrow">Vertical Slice Console</p>
-            <h1>인력 사무소 작전실</h1>
+            <h1>Operations Control Room</h1>
           </div>
           <div className="actions">
             <button
@@ -110,22 +240,22 @@ export default function App() {
                 guarded(async () => {
                   const g = await api.guestAuth();
                   setToken(g.token);
-                  showToast("게스트 생성 완료");
+                  showToast("Guest created");
                 })
               }
             >
-              Guest 시작
+              Guest Start
             </button>
             <button
               disabled={!token || loading}
               onClick={() =>
                 guarded(async () => {
                   await syncAll(token!);
-                  showToast("동기화 완료");
+                  showToast("Synced");
                 })
               }
             >
-              동기화
+              Sync
             </button>
           </div>
         </div>
@@ -144,17 +274,17 @@ export default function App() {
             <strong>{profile?.user.materialB ?? 0}</strong>
           </article>
           <article className="statCard">
-            <span>오퍼 리셋</span>
+            <span>Offer reset</span>
             <strong>{nextReset}</strong>
           </article>
         </section>
 
         <section className="metaRow">
-          <p>용병 {mercs.length}명</p>
-          <p>평균 전투력 {avgPower}</p>
-          <p>파견중 {inProgressDispatch}</p>
-          <p>제작중 {inProgressCraft}</p>
-          <p>승급중 {inProgressPromotion}</p>
+          <p>Mercs {mercs.length}</p>
+          <p>Avg Power {avgPower}</p>
+          <p>Dispatching {inProgressDispatch}</p>
+          <p>Crafting {inProgressCraft}</p>
+          <p>Promoting {inProgressPromotion}</p>
         </section>
       </header>
 
@@ -170,6 +300,156 @@ export default function App() {
       {toast && <div className="toast success">{toast}</div>}
       {error && <div className="toast error">{error}</div>}
 
+      {tab === "FIELD" && battlePageOpen && battle && (
+        <section className="fieldBattlePage">
+          <article className="panel battlePanel">
+            <div className="battleHeader">
+              <div>
+                <h2>{battle.locationName}</h2>
+                <p className="small">
+                  Wave {battle.waveIndex} · {phaseLabel(battle.phase)} · Retry {battle.retryCount} · Clear {battle.clearCount}
+                </p>
+              </div>
+              <button onClick={() => setBattlePageOpen(false)}>Back</button>
+            </div>
+
+            <div className="battleArena" style={{ backgroundImage: `url(${battle.locationImageUrl})` }}>
+              <div className="enemyRow">
+                {battle.enemies.map((u) => (
+                  <div key={u.id} className={`sprite enemy ${u.alive ? "" : "dead"}`}>
+                    <img className="spriteImg" src={u.spriteUrl} alt={u.name} />
+                    <div className="hpBar">
+                      <span style={{ width: `${hpPct(u.hp, u.maxHp)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="allyRow">
+                {battle.allies.map((u) => (
+                  <div key={u.id} className={`sprite ally ${u.alive ? "" : "dead"}`}>
+                    <img className="spriteImg" src={u.spriteUrl} alt={u.name} />
+                    <div className="hpBar">
+                      <span style={{ width: `${hpPct(u.hp, u.maxHp)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="turnGauge">
+              <span style={{ width: `${battle.gaugePercent}%` }} />
+            </div>
+
+            <div className="battleLog">
+              {battle.logs.slice(-10).map((line, idx) => (
+                <p key={`${idx}-${line}`}>{line}</p>
+              ))}
+            </div>
+
+            <div className="dropLine">
+              {battle.droppedItems.length < 1 ? (
+                <span>No drops yet</span>
+              ) : (
+                <span>Drops: {battle.droppedItems.map((d) => d.itemName).join(", ")}</span>
+              )}
+            </div>
+
+            <div className="battleBottom">
+              <button
+                disabled={!token || loading || battle.status !== "IN_PROGRESS"}
+                onClick={() =>
+                  guarded(async () => {
+                    const next = await api.battleRetreat(token!, battle.id);
+                    setBattle(next);
+                    await syncAll(token!);
+                    showToast("Retreated");
+                  })
+                }
+              >
+                Retreat
+              </button>
+              <button
+                disabled={!token || loading}
+                onClick={() =>
+                  guarded(async () => {
+                    await api.battleClose(token!, battle.id);
+                    setBattle(null);
+                    setBattlePageOpen(false);
+                    await syncAll(token!);
+                    showToast("Battle closed");
+                  })
+                }
+              >
+                Close
+              </button>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {tab === "FIELD" && !battlePageOpen && (
+        <section className="fieldLayout">
+          {battle && (
+            <article className="panel fieldCurrentBattle">
+              <div className="fieldCurrentMain" style={{ backgroundImage: `url(${battle.locationImageUrl})` }}>
+                <h2>{battle.locationName}</h2>
+                <div className="fieldCurrentParty">
+                  {battle.allies.map((u) => (
+                    <div key={u.id} className="fieldCurrentUnit">
+                      <img className="fieldCurrentImg" src={u.spriteUrl} alt={u.name} />
+                      <em style={{ width: `${hpPct(u.hp, u.maxHp)}%` }} />
+                    </div>
+                  ))}
+                </div>
+                <p className="small">{phaseLabel(battle.phase)}</p>
+                <div className="turnGauge mini">
+                  <span style={{ width: `${battle.gaugePercent}%` }} />
+                </div>
+              </div>
+              <button onClick={() => setBattlePageOpen(true)}>Open Battle</button>
+            </article>
+          )}
+
+          <div className="fieldStack">
+            {locations.map((field) => (
+              <article key={field.locationId} className={`fieldCard ${teamLocationId === field.locationId ? "active" : ""}`}>
+                <img src={field.imageUrl} alt={field.name} className="fieldThumb" />
+                <div className="fieldOverlay">
+                  <div className="fieldTop">
+                    <div>
+                      <h3>{field.name}</h3>
+                      <p>{field.description}</p>
+                    </div>
+                    <span className={`fieldBadge ${field.isOpen ? "ready" : "soon"}`}>
+                      {field.isOpen ? `Difficulty ${field.difficulty}` : "Closed"}
+                    </span>
+                  </div>
+
+                  <div className="fieldMonsters">
+                    {field.monsters.map((monster) => (
+                      <span key={monster} className="monsterChip">
+                        {monster}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="fieldMeta">
+                    <span>Reward: {formatLocationReward(field)}</span>
+                    <span>Duration: {field.dispatchSeconds}s</span>
+                  </div>
+
+                  <div className="fieldAction">
+                    <button disabled={!token || loading || !field.isOpen} onClick={() => openTeamModal(field.locationId)}>
+                      Team Dispatch
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {tab === "RECRUIT" && (
         <section className="grid4">
           {offers.map((o) => (
@@ -180,34 +460,34 @@ export default function App() {
                 G{o.grade} · {o.roleTag}
               </p>
               <p>{o.traitLine}</p>
-              <p className="small">비용 C{ o.recruitCostCredits }</p>
+              <p className="small">Cost C{o.recruitCostCredits}</p>
               <button
                 disabled={!token || loading}
                 onClick={() =>
                   guarded(async () => {
                     await api.recruit(token!, o.slotIndex);
                     await syncAll(token!);
-                    showToast("모집 완료");
+                    showToast("Recruited");
                   })
                 }
               >
-                모집
+                Recruit
               </button>
             </article>
           ))}
           <article className="panel full panelAction">
-            <p>오퍼 풀을 즉시 갱신합니다.</p>
+            <p>Refresh all offer slots immediately.</p>
             <button
               disabled={!token || loading}
               onClick={() =>
                 guarded(async () => {
                   await api.rerollOffers(token!);
                   await syncAll(token!);
-                  showToast("오퍼 리롤 완료");
+                  showToast("Rerolled");
                 })
               }
             >
-              오퍼 리롤
+              Reroll
             </button>
           </article>
         </section>
@@ -216,13 +496,13 @@ export default function App() {
       {tab === "OFFICE" && (
         <section className="grid2">
           <article className="panel">
-            <h2>보유 용병</h2>
+            <h2>Mercenary Roster</h2>
             <ul className="list">
               {mercs.map((m) => (
                 <li key={m.id}>
                   <div>
                     <strong>{m.name}</strong> Lv.{m.level} G{m.grade} ({m.roleTag})
-                    <div className="small">Power {m.power} · EXP {m.exp} · 보너스 {Math.round(m.promotionBonus * 100)}%</div>
+                    <div className="small">Power {m.power} · EXP {m.exp} · Bonus {Math.round(m.promotionBonus * 100)}%</div>
                   </div>
                   <div className="rowBtn">
                     <button
@@ -231,11 +511,11 @@ export default function App() {
                         guarded(async () => {
                           await api.startPromotion(token!, m.id, "A");
                           await syncAll(token!);
-                          showToast("승급 A 시작");
+                          showToast("Promotion A started");
                         })
                       }
                     >
-                      승급A
+                      Promote A
                     </button>
                     <button
                       disabled={!token || loading}
@@ -243,11 +523,11 @@ export default function App() {
                         guarded(async () => {
                           await api.startPromotion(token!, m.id, "B");
                           await syncAll(token!);
-                          showToast("승급 B 시작");
+                          showToast("Promotion B started");
                         })
                       }
                     >
-                      승급B
+                      Promote B
                     </button>
                   </div>
                 </li>
@@ -255,7 +535,7 @@ export default function App() {
             </ul>
           </article>
           <article className="panel">
-            <h2>승급 진행</h2>
+            <h2>Promotion Jobs</h2>
             <ul className="list">
               {promotions.map((p) => (
                 <li key={p.id}>
@@ -268,11 +548,11 @@ export default function App() {
                       guarded(async () => {
                         await api.claimPromotion(token!, p.id);
                         await syncAll(token!);
-                        showToast("승급 완료");
+                        showToast("Promotion claimed");
                       })
                     }
                   >
-                    수령
+                    Claim
                   </button>
                 </li>
               ))}
@@ -281,91 +561,17 @@ export default function App() {
         </section>
       )}
 
-      {tab === "FIELD" && (
-        <section className="grid2">
-          <article className="panel">
-            <h2>현장 선택</h2>
-            <select className="input" value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
-              {locations.map((l) => (
-                <option key={l.locationId} value={l.locationId}>
-                  {l.name} (난이도 {l.difficulty})
-                </option>
-              ))}
-            </select>
-            <h3>파티 (최대 3)</h3>
-            <ul className="list">
-              {mercs.map((m) => (
-                <li key={m.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={party.includes(m.id)}
-                      disabled={m.isDispatched}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          if (party.length >= 3) return;
-                          setParty([...party, m.id]);
-                        } else {
-                          setParty(party.filter((id) => id !== m.id));
-                        }
-                      }}
-                    />{" "}
-                    {m.name} (P{m.power}) {m.isDispatched ? "[파견중]" : ""}
-                  </label>
-                </li>
-              ))}
-            </ul>
-            <button
-              disabled={!token || loading || party.length < 1 || !selectedLocation}
-              onClick={() =>
-                guarded(async () => {
-                  await api.startDispatch(token!, selectedLocation, party);
-                  await syncAll(token!);
-                  showToast("파견 시작");
-                })
-              }
-            >
-              파견 시작
-            </button>
-          </article>
-          <article className="panel">
-            <h2>파견 상태</h2>
-            {!dispatch ? (
-              <p>진행 중인 파견 없음</p>
-            ) : (
-              <>
-                <p>상태: {dispatch.status}</p>
-                <p>남은 시간: {dispatch.remainsSeconds}s</p>
-                <p>성공 확률: {(dispatch.successChance * 100).toFixed(1)}%</p>
-                <button
-                  disabled={!token || loading || !dispatch.claimable}
-                  onClick={() =>
-                    guarded(async () => {
-                      await api.claimDispatch(token!);
-                      await syncAll(token!);
-                      showToast("파견 보상 수령");
-                    })
-                  }
-                >
-                  보상 수령
-                </button>
-              </>
-            )}
-          </article>
-        </section>
-      )}
-
       {tab === "CRAFT" && (
         <section className="grid2">
           <article className="panel">
-            <h2>레시피</h2>
+            <h2>Recipes</h2>
             <ul className="list">
               {recipes.map((r) => (
                 <li key={r.recipeId}>
                   <div>
                     <strong>{r.recipeId}</strong> · {r.resultEquipType} G{r.resultGrade} +{r.statValue}
                     <div className="small">
-                      비용 C{r.costCredits} / A{r.costMaterialA} / B{r.costMaterialB} · {r.craftSeconds}s
+                      Cost C{r.costCredits} / A{r.costMaterialA} / B{r.costMaterialB} · {r.craftSeconds}s
                     </div>
                   </div>
                   <button
@@ -374,16 +580,16 @@ export default function App() {
                       guarded(async () => {
                         await api.startCraft(token!, r.recipeId);
                         await syncAll(token!);
-                        showToast("제작 시작");
+                        showToast("Craft started");
                       })
                     }
                   >
-                    제작
+                    Craft
                   </button>
                 </li>
               ))}
             </ul>
-            <h3>제작 진행</h3>
+            <h3>Craft Jobs</h3>
             <ul className="list">
               {craftJobs.map((j) => (
                 <li key={j.id}>
@@ -396,20 +602,20 @@ export default function App() {
                       guarded(async () => {
                         await api.claimCraft(token!, j.id);
                         await syncAll(token!);
-                        showToast("제작 완료 수령");
+                        showToast("Craft claimed");
                       })
                     }
                   >
-                    수령
+                    Claim
                   </button>
                 </li>
               ))}
             </ul>
           </article>
           <article className="panel">
-            <h2>장비</h2>
+            <h2>Equipment</h2>
             <select className="input" value={selectedMercForEquip} onChange={(e) => setSelectedMercForEquip(e.target.value)}>
-              <option value="">장착 대상 선택</option>
+              <option value="">Select mercenary</option>
               {mercs.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
@@ -421,7 +627,7 @@ export default function App() {
                 <li key={e.id}>
                   <div>
                     <strong>{e.type}</strong> G{e.grade} +{e.statValue}
-                    <div className="small">{e.equippedMercId ? `장착중(slot ${e.slotIndex})` : "미장착"}</div>
+                    <div className="small">{e.equippedMercId ? `Equipped (slot ${e.slotIndex})` : "Unequipped"}</div>
                   </div>
                   <div className="rowBtn">
                     <button
@@ -430,11 +636,11 @@ export default function App() {
                         guarded(async () => {
                           await api.equip(token!, selectedMercForEquip, e.id, 0);
                           await syncAll(token!);
-                          showToast("장착 완료");
+                          showToast("Equipped");
                         })
                       }
                     >
-                      장착
+                      Equip
                     </button>
                     <button
                       disabled={!token || loading || !e.equippedMercId}
@@ -442,11 +648,11 @@ export default function App() {
                         guarded(async () => {
                           await api.unequip(token!, e.id);
                           await syncAll(token!);
-                          showToast("해제 완료");
+                          showToast("Unequipped");
                         })
                       }
                     >
-                      해제
+                      Unequip
                     </button>
                   </div>
                 </li>
@@ -454,6 +660,71 @@ export default function App() {
             </ul>
           </article>
         </section>
+      )}
+
+      {teamModalOpen && (
+        <div className="modalBackdrop">
+          <div className="modalPanel teamModal">
+            <h3>Team Setup</h3>
+            <p className="small">Deploy up to {battleConfig.maxPartySize} units</p>
+            <div className="teamSlots">
+              {teamSlots.map((slot, idx) => {
+                const merc = slot ? mercMap.get(slot) : null;
+                return (
+                  <button
+                    key={idx}
+                    className="teamSlot"
+                    onClick={() => {
+                      setPickerSlot(idx);
+                      setPickerOpen(true);
+                    }}
+                  >
+                    {merc ? `${merc.name} (Lv.${merc.level})` : "+"}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="teamModalButtons">
+              <button onClick={() => showToast("Load preset: pending")}>Load Team</button>
+              <button onClick={() => showToast("Save preset: pending")}>Save Team</button>
+            </div>
+
+            <div className="teamModalBottom">
+              <button onClick={() => setTeamModalOpen(false)}>Close</button>
+              <button onClick={clearTeamSlots}>Clear</button>
+              <button disabled={!token || loading} onClick={() => guarded(sendTeam)}>
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickerOpen && (
+        <div className="modalBackdrop">
+          <div className="modalPanel pickerModal">
+            <h3>Select Mercenary</h3>
+            <div className="mercPickList">
+              {pickerMercs.map((m) => (
+                <button key={m.id} className="mercPickRow" onClick={() => assignMercToSlot(m.id)}>
+                  <span className="mercPickName">{m.name}</span>
+                  <span className="mercPickMeta">
+                    Lv.{m.level} · G{m.grade}
+                  </span>
+                  <span className="mercEquipStrip">
+                    {(equipByMerc.get(m.id) ?? []).map((e) => (
+                      <i key={e.id}>{equipIcon(e.type)}</i>
+                    ))}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="teamModalBottom">
+              <button onClick={() => setPickerOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -1,0 +1,6 @@
+key,value
+turnGaugeSeconds,4
+manaRegenBasePct,0.10
+manaRegenIntPct,0.10
+activeManaThresholdPct,1.00
+logKeepCount,24
