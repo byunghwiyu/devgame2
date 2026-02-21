@@ -72,7 +72,7 @@ function talentBadgeStyle(tag?: string | null) {
 export default function App() {
   const { token, setToken } = useAuthStore();
   const [authMode, setAuthMode] = useState<"LOGIN" | "SIGNUP">("LOGIN");
-  const [authEmail, setAuthEmail] = useState("");
+  const [authAccount, setAuthAccount] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authNickname, setAuthNickname] = useState("");
   const [tab, setTab] = useState<Tab>("RECRUIT");
@@ -259,28 +259,28 @@ export default function App() {
   };
 
   const handleLogin = async () => {
-    if (!authEmail || !authPassword) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+    if (!authAccount || !authPassword) {
+      setError("Please enter account and password.");
       return;
     }
     await guarded(async () => {
-      const { token: nextToken } = await api.login(authEmail, authPassword);
+      const { token: nextToken } = await api.login(authAccount, authPassword);
       setToken(nextToken);
       await syncAll(nextToken);
-      showToast("로그인 완료");
+      showToast("Login complete");
     });
   };
 
   const handleSignup = async () => {
-    if (!authEmail || !authPassword) {
-      setError("이메일과 비밀번호를 입력해주세요.");
+    if (!authAccount || !authPassword) {
+      setError("Please enter account and password.");
       return;
     }
     await guarded(async () => {
-      const { token: nextToken } = await api.signup(authEmail, authPassword, authNickname || undefined);
+      const { token: nextToken } = await api.signup(authAccount, authPassword, authNickname || undefined);
       setToken(nextToken);
       await syncAll(nextToken);
-      showToast("회원가입 완료");
+      showToast("Sign up complete");
     });
   };
 
@@ -290,39 +290,39 @@ export default function App() {
         <div className="bgMesh" />
         <section className="authPanel">
           <p className="eyebrow">Inryuk Office</p>
-          <h1>로그인</h1>
-          <p className="small">계정으로 로그인하면 메인 게임 페이지로 이동합니다.</p>
+          <h1>Account Login</h1>
+          <p className="small">Create an account now. Email verification will be added later.</p>
 
           <div className="authSwitch">
             <button className={authMode === "LOGIN" ? "active" : ""} onClick={() => setAuthMode("LOGIN")}>
-              로그인
+              Login
             </button>
             <button className={authMode === "SIGNUP" ? "active" : ""} onClick={() => setAuthMode("SIGNUP")}>
-              회원가입
+              Sign Up
             </button>
           </div>
 
           <input
             className="input"
-            type="email"
-            placeholder="email@example.com"
-            value={authEmail}
-            onChange={(e) => setAuthEmail(e.target.value)}
+            type="text"
+            placeholder="account id"
+            value={authAccount}
+            onChange={(e) => setAuthAccount(e.target.value)}
           />
           <input
             className="input"
             type="password"
-            placeholder="비밀번호 (6자 이상)"
+            placeholder="password (6+ chars)"
             value={authPassword}
             onChange={(e) => setAuthPassword(e.target.value)}
           />
           {authMode === "SIGNUP" && (
-            <input className="input" placeholder="닉네임 (선택)" value={authNickname} onChange={(e) => setAuthNickname(e.target.value)} />
+            <input className="input" placeholder="nickname (optional)" value={authNickname} onChange={(e) => setAuthNickname(e.target.value)} />
           )}
 
           {error && <div className="toast error">{error}</div>}
           <button className="authSubmit" disabled={loading} onClick={() => (authMode === "LOGIN" ? handleLogin() : handleSignup())}>
-            {authMode === "LOGIN" ? "로그인" : "회원가입"}
+            {authMode === "LOGIN" ? "Login" : "Sign Up"}
           </button>
         </section>
       </main>
@@ -353,7 +353,7 @@ export default function App() {
                 setCraftJobs([]);
                 setEquips([]);
                 setBattle(null);
-                showToast("로그아웃");
+                showToast("Logged out");
               }}
             >
               Logout
