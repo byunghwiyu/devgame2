@@ -1,3 +1,4 @@
+﻿# locationId: location id, waveIndex: wave number, monsterTemplateId: monster template id, count: spawn count
 locationId,waveIndex,monsterTemplateId,count
 SITE_ALPHA,1,MON_WOLF,1
 SITE_BRAVO,1,MON_GOBLIN,2

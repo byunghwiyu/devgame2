@@ -1,2 +1,3 @@
+﻿# talentTag: talent key, name: talent name, description: talent description, rollWeight: selection weight, hpPct: hp bonus percent, staminaPct: stamina bonus percent, agilityPct: agility bonus percent, intelligencePct: intelligence bonus percent, strengthPct: strength bonus percent, attackPct: attack bonus percent, defensePct: defense bonus percent
 talentTag,name,description,rollWeight,hpPct,staminaPct,agilityPct,intelligencePct,strengthPct,attackPct,defensePct
 BOOKWORM,Bookworm,INT +10% / STA -5% / AGI -5%,100,0,-0.05,-0.05,0.10,0,0,0

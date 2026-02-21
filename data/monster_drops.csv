@@ -1,3 +1,4 @@
+﻿# monsterTemplateId: monster template id, itemId: drop item id, itemName: drop item name, dropRate: drop probability, equipType: equipment type, grade: item grade, statValue: item stat value
 monsterTemplateId,itemId,itemName,dropRate,equipType,grade,statValue
 MON_WOLF,ITM_WOLF_FANG,Dire Fang,0.35,weapon,1,5
 MON_GOBLIN,ITM_GOBLIN_KNIFE,Rust Knife,0.30,weapon,1,4

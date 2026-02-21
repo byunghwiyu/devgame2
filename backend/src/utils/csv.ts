@@ -9,7 +9,7 @@ export function parseCsvFile(filePath: string): Record<string, string>[] {
   const lines = raw
     .split("\n")
     .map((l) => l.replace(/\r/g, "").trim())
-    .filter((l) => l.length > 0);
+    .filter((l) => l.length > 0 && !l.startsWith("#"));
 
   if (lines.length < 2) return [];
 

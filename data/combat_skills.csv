@@ -1,3 +1,4 @@
+﻿# ownerType: owner entity type, ownerId: owner id, skillId: skill id, skillName: skill name, kind: active/passive, effectType: effect category, value1: primary value, value2: secondary value
 ownerType,ownerId,skillId,skillName,kind,effectType,value1,value2
 MERC_TEMPLATE,CHAR_LABORER_A,PS_IRON_SKIN,Iron Skin,passive,defense_pct,0.18,0
 MERC_TEMPLATE,CHAR_LABORER_A,AC_SHIELD_SLAM,Shield Slam,active,damage,1.65,0

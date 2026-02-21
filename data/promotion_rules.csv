@@ -1,4 +1,5 @@
-﻿gradeFrom,gradeTo,requiredLevel,timeSeconds,costCredits,route,multiplierBonus
+﻿# gradeFrom: source grade, gradeTo: target grade, requiredLevel: required level, timeSeconds: promotion duration seconds, costCredits: promotion credit cost, route: route A/B, multiplierBonus: bonus multiplier
+gradeFrom,gradeTo,requiredLevel,timeSeconds,costCredits,route,multiplierBonus
 1,2,3,120,220,A,0.08
 1,2,3,120,220,B,0.10
 2,3,6,240,480,A,0.12

@@ -1,3 +1,4 @@
+﻿# key: define key, value: numeric value, description: human-readable meaning
 key,value,description
 turnSeconds,1.8,auto battle turn interval seconds
 exploreSeconds,1.5,explore phase interval seconds

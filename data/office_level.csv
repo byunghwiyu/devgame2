@@ -1,4 +1,5 @@
-﻿officeLevel,offerResetSeconds,minGrade,maxGrade,offerCount,rerollCostCredits
+﻿# officeLevel: office level, offerResetSeconds: offer reset seconds, minGrade: minimum offer grade, maxGrade: maximum offer grade, offerCount: number of offer slots, rerollCostCredits: reroll cost in credits
+officeLevel,offerResetSeconds,minGrade,maxGrade,offerCount,rerollCostCredits
 1,600,1,2,4,80
 2,540,1,3,4,120
 3,480,2,3,4,180

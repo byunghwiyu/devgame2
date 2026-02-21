@@ -1,3 +1,4 @@
+﻿# key: rule key, value: numeric rule value
 key,value
 turnGaugeSeconds,4
 manaRegenBasePct,0.10

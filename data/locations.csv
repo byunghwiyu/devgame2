@@ -1,4 +1,5 @@
-﻿locationId,name,difficulty,dispatchSeconds,baseCreditReward,baseExpReward,materialAReward,materialBReward,description,imageUrl,monsters,isOpen
+﻿# locationId: location id, name: location name, difficulty: difficulty tier, dispatchSeconds: dispatch duration seconds, baseCreditReward: base credit reward, baseExpReward: base exp reward, materialAReward: material A reward, materialBReward: material B reward, description: location description, imageUrl: background image url, monsters: monster list separated by |, isOpen: open flag 1/0
+locationId,name,difficulty,dispatchSeconds,baseCreditReward,baseExpReward,materialAReward,materialBReward,description,imageUrl,monsters,isOpen
 SITE_ALPHA,마법의 숲,1,120,180,24,3,1,낮은 난이도의 탐색 임무. 안정적으로 재화를 수급합니다.,https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1200&q=80,슬라임|고블린|늑대,1
 SITE_BRAVO,황혼 협곡,2,180,280,38,5,2,중간 난이도 교전 지역. 파티 전투력 밸런스가 중요합니다.,https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80,정찰병|망령|돌거인,1
 SITE_CHARLIE,폭풍 해안,3,300,420,55,8,4,고난이도 자원 확보 구역. 실패 시 보상 손실이 큽니다.,https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80,해적|바다뱀|정예병,1
