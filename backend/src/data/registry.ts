@@ -1,6 +1,15 @@
 ﻿import path from "node:path";
 import { asFloat, asInt, parseCsvFile } from "../utils/csv.js";
 
+function normalizeImagePath(v: string, fallbackDir: "mercs" | "monsters"): string {
+  const raw = String(v ?? "").trim();
+  if (!raw) return "";
+  const withRoot = raw.startsWith("/") ? raw : `/assets/illustrations/${fallbackDir}/${raw}`;
+  const hasExt = /\.[a-z0-9]+$/i.test(withRoot);
+  return hasExt ? withRoot : `${withRoot}.png`;
+}
+
+
 export type CharacterTemplate = {
   templateId: string;
   name: string;
@@ -10,8 +19,7 @@ export type CharacterTemplate = {
   recruitCostCredits: number;
   recruitWeight: number;
   traitLine: string;
-  upgradePathA: string;
-  upgradePathB: string;
+  imageUrl: string;
 };
 
 export type OfficeLevelRow = {
@@ -63,6 +71,19 @@ export type CombatUnitRow = {
   expGain: number;
   healPower: number;
   spriteUrl: string;
+  spriteIdle?: string;
+  spriteAttack?: string;
+  spriteFrameWidth?: number;
+  spriteFrameHeight?: number;
+  spriteIdleFrames?: number;
+  spriteAttackFrames?: number;
+  spriteIdleFps?: number;
+  spriteAttackFps?: number;
+  spritePivotX?: number;
+  spritePivotY?: number;
+  spriteIdleIndexList?: number[];
+  spriteAttackIndexList?: number[];
+  spriteAtlasKey?: string;
 };
 
 export type CombatSkillRow = {
@@ -84,7 +105,6 @@ export type CombatSkillRow = {
     | "aoe_damage"
     | "heal_lowest";
   value1: number;
-  value2: number;
 };
 
 export type LocationWaveRow = {
@@ -94,20 +114,28 @@ export type LocationWaveRow = {
   count: number;
 };
 
-export type BattleRuleRow = {
-  key: string;
-  value: number;
+export type FieldStageRuleRow = {
+  locationId: string;
+  battleStageWeight: number;
+  exploreStageWeight: number;
+  bossEveryStageClears: number;
+  hiddenEveryStageClears: number;
+  hiddenEnterChance: number;
+};
+
+export type FieldStageEncounterRow = {
+  locationId: string;
+  stageType: "BATTLE" | "BOSS" | "HIDDEN";
+  encounterId: string;
+  weight: number;
+  monsterTemplateId: string;
+  count: number;
 };
 
 export type DefineRow = {
   key: string;
   value: number;
   description: string;
-};
-
-export type ExploreTextRow = {
-  id: string;
-  text: string;
 };
 
 export type MonsterDropRow = {
@@ -167,9 +195,9 @@ class DataRegistry {
   combatUnits: CombatUnitRow[] = [];
   combatSkills: CombatSkillRow[] = [];
   locationWaves: LocationWaveRow[] = [];
-  battleRules: BattleRuleRow[] = [];
+  fieldStageRules: FieldStageRuleRow[] = [];
+  fieldStageEncounters: FieldStageEncounterRow[] = [];
   defineTable: DefineRow[] = [];
-  exploreTexts: ExploreTextRow[] = [];
   monsterDrops: MonsterDropRow[] = [];
   talents: TalentRow[] = [];
 
@@ -187,8 +215,7 @@ class DataRegistry {
       recruitCostCredits: asInt(r.recruitCostCredits),
       recruitWeight: asInt(r.recruitWeight),
       traitLine: r.traitLine,
-      upgradePathA: r.upgradePathA,
-      upgradePathB: r.upgradePathB,
+      imageUrl: normalizeImagePath(r.imageUrl ?? "", "mercs"),
     }));
 
     this.officeLevels = parseCsvFile(path.join(dataDir, "office_level.csv")).map((r) => ({
@@ -268,7 +295,26 @@ class DataRegistry {
       thornMagical: asFloat(r.thornMagical),
       expGain: asFloat(r.expGain || "1"),
       healPower: asFloat(r.healPower || "1"),
-      spriteUrl: r.spriteUrl ?? "",
+      spriteUrl: normalizeImagePath(r.spriteUrl ?? "", r.entityType === "MONSTER_TEMPLATE" ? "monsters" : "mercs"),
+      spriteIdle: String(r.spriteIdle ?? "").trim() || undefined,
+      spriteAttack: String(r.spriteAttack ?? "").trim() || undefined,
+      spriteFrameWidth: asInt(r.spriteFrameWidth || "0") || undefined,
+      spriteFrameHeight: asInt(r.spriteFrameHeight || "0") || undefined,
+      spriteIdleFrames: asInt(r.spriteIdleFrames || "0") || undefined,
+      spriteAttackFrames: asInt(r.spriteAttackFrames || "0") || undefined,
+      spriteIdleFps: asInt(r.spriteIdleFps || "0") || undefined,
+      spriteAttackFps: asInt(r.spriteAttackFps || "0") || undefined,
+      spritePivotX: String(r.spritePivotX ?? "").trim() === "" ? undefined : asFloat(r.spritePivotX),
+      spritePivotY: String(r.spritePivotY ?? "").trim() === "" ? undefined : asFloat(r.spritePivotY),
+      spriteIdleIndexList: String(r.spriteIdleIndexList ?? "")
+        .split("|")
+        .map((v) => asInt(v))
+        .filter((v) => Number.isFinite(v) && v >= 0),
+      spriteAttackIndexList: String(r.spriteAttackIndexList ?? "")
+        .split("|")
+        .map((v) => asInt(v))
+        .filter((v) => Number.isFinite(v) && v >= 0),
+      spriteAtlasKey: String(r.spriteAtlasKey ?? "").trim() || undefined,
     }));
 
     this.combatSkills = parseCsvFile(path.join(dataDir, "combat_skills.csv")).map((r) => ({
@@ -279,7 +325,6 @@ class DataRegistry {
       kind: r.kind === "active" ? "active" : "passive",
       effectType: (r.effectType as CombatSkillRow["effectType"]) || "damage",
       value1: asFloat(r.value1),
-      value2: asFloat(r.value2),
     }));
 
     this.locationWaves = parseCsvFile(path.join(dataDir, "location_waves.csv")).map((r) => ({
@@ -289,20 +334,28 @@ class DataRegistry {
       count: asInt(r.count),
     }));
 
-    this.battleRules = parseCsvFile(path.join(dataDir, "battle_rules.csv")).map((r) => ({
-      key: r.key,
-      value: asFloat(r.value),
+    this.fieldStageRules = parseCsvFile(path.join(dataDir, "field_stage_rules.csv")).map((r) => ({
+      locationId: r.locationId,
+      battleStageWeight: asFloat(r.battleStageWeight || "0.8"),
+      exploreStageWeight: asFloat(r.exploreStageWeight || "0.2"),
+      bossEveryStageClears: asInt(r.bossEveryStageClears || "100"),
+      hiddenEveryStageClears: asInt(r.hiddenEveryStageClears || "20"),
+      hiddenEnterChance: asFloat(r.hiddenEnterChance || "0.2"),
+    }));
+
+    this.fieldStageEncounters = parseCsvFile(path.join(dataDir, "field_stage_encounters.csv")).map((r) => ({
+      locationId: r.locationId,
+      stageType: (r.stageType as FieldStageEncounterRow["stageType"]) || "BATTLE",
+      encounterId: r.encounterId,
+      weight: asFloat(r.weight || "1"),
+      monsterTemplateId: r.monsterTemplateId,
+      count: asInt(r.count || "1"),
     }));
 
     this.defineTable = parseCsvFile(path.join(dataDir, "define_table.csv")).map((r) => ({
       key: r.key,
       value: asFloat(r.value),
       description: r.description ?? "",
-    }));
-
-    this.exploreTexts = parseCsvFile(path.join(dataDir, "explore_texts.csv")).map((r) => ({
-      id: r.id,
-      text: r.text,
     }));
 
     this.monsterDrops = parseCsvFile(path.join(dataDir, "monster_drops.csv")).map((r) => ({
@@ -342,6 +395,7 @@ class DataRegistry {
     for (const c of this.characters) {
       if (!c.templateId) throw new Error("characters.csv templateId empty");
       if (set.has(c.templateId)) throw new Error(`characters.csv duplicated templateId: ${c.templateId}`);
+      if (!c.imageUrl) throw new Error(`characters.csv imageUrl empty: ${c.templateId}`);
       set.add(c.templateId);
     }
 
@@ -358,9 +412,10 @@ class DataRegistry {
     if (this.combatUnits.length < 1) throw new Error("combat_units.csv must have rows");
     if (this.combatUnits.some((u) => !u.spriteUrl)) throw new Error("combat_units.csv spriteUrl is required");
     if (this.locationWaves.length < 1) throw new Error("location_waves.csv must have rows");
+    if (this.fieldStageRules.length < 1) throw new Error("field_stage_rules.csv must have rows");
+    if (this.fieldStageEncounters.length < 1) throw new Error("field_stage_encounters.csv must have rows");
     if (this.monsterDrops.length < 1) throw new Error("monster_drops.csv must have rows");
     if (this.defineTable.length < 1) throw new Error("define_table.csv must have rows");
-    if (this.exploreTexts.length < 1) throw new Error("explore_texts.csv must have rows");
     if (this.talents.length < 1) throw new Error("talents.csv must have rows");
     const talentSet = new Set<string>();
     for (const t of this.talents) {
@@ -386,6 +441,11 @@ class DataRegistry {
     return found;
   }
 
+  getTemplateOrNull(templateId: string): CharacterTemplate | null {
+    this.ensureLoaded();
+    return this.characters.find((c) => c.templateId === templateId) ?? null;
+  }
+
   getRecipe(recipeId: string): RecipeRow {
     this.ensureLoaded();
     const found = this.recipes.find((r) => r.recipeId === recipeId);
@@ -407,6 +467,11 @@ class DataRegistry {
     return found;
   }
 
+  getCombatUnitOrNull(entityType: "MERC_TEMPLATE" | "MONSTER_TEMPLATE", entityId: string): CombatUnitRow | null {
+    this.ensureLoaded();
+    return this.combatUnits.find((r) => r.entityType === entityType && r.entityId === entityId) ?? null;
+  }
+
   getCombatSkills(ownerType: "MERC_TEMPLATE" | "MONSTER_TEMPLATE", ownerId: string): CombatSkillRow[] {
     this.ensureLoaded();
     return this.combatSkills.filter((r) => r.ownerType === ownerType && r.ownerId === ownerId);
@@ -417,21 +482,22 @@ class DataRegistry {
     return this.locationWaves.filter((r) => r.locationId === locationId).sort((a, b) => a.waveIndex - b.waveIndex);
   }
 
-  getBattleRule(key: string, fallback: number): number {
+  getFieldStageRule(locationId: string): FieldStageRuleRow {
     this.ensureLoaded();
-    return this.battleRules.find((r) => r.key === key)?.value ?? fallback;
+    return (
+      this.fieldStageRules.find((r) => r.locationId === locationId) ??
+      this.fieldStageRules[0]
+    );
+  }
+
+  getFieldStageEncounters(locationId: string, stageType: FieldStageEncounterRow["stageType"]): FieldStageEncounterRow[] {
+    this.ensureLoaded();
+    return this.fieldStageEncounters.filter((r) => r.locationId === locationId && r.stageType === stageType);
   }
 
   getDefineValue(key: string, fallback: number): number {
     this.ensureLoaded();
     return this.defineTable.find((r) => r.key === key)?.value ?? fallback;
-  }
-
-  getRandomExploreText(): string {
-    this.ensureLoaded();
-    if (this.exploreTexts.length < 1) return "탐색 중입니다.";
-    const idx = Math.floor(Math.random() * this.exploreTexts.length);
-    return this.exploreTexts[idx].text;
   }
 
   getMonsterDrops(monsterTemplateId: string): MonsterDropRow[] {
@@ -475,3 +541,5 @@ export function weightedPick<T>(rows: T[], weightOf: (x: T) => number): T {
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
+
+

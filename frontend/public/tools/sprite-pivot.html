@@ -1,0 +1,1191 @@
+﻿<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sprite Editor Tool</title>
+    <style>
+      :root {
+        --bg: #0a1018;
+        --panel: #111c2b;
+        --line: #2c4b73;
+        --text: #d8e9ff;
+        --muted: #9fb7d6;
+        --accent: #4cc9f0;
+        --ok: #6ee7b7;
+        --warn: #ffd166;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Noto Sans KR", sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top, #18293f, var(--bg) 60%);
+      }
+      .page {
+        width: min(1600px, calc(100% - 16px));
+        margin: 8px auto;
+        display: grid;
+        gap: 8px;
+      }
+      .topbar {
+        display: grid;
+        grid-template-columns: 340px 1fr 300px;
+        gap: 8px;
+      }
+      .panel {
+        background: linear-gradient(180deg, #15253c, var(--panel));
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px;
+      }
+      h1 { margin: 0 0 6px; font-size: 15px; }
+      .row2, .row3 { display: grid; gap: 6px; }
+      .row2 { grid-template-columns: 1fr 1fr; }
+      .row3 { grid-template-columns: 1fr 1fr 1fr; }
+      label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 3px; }
+      input, select, button, textarea {
+        width: 100%;
+        border: 1px solid #3c6293;
+        background: #091325;
+        color: var(--text);
+        border-radius: 7px;
+        padding: 6px;
+        font-size: 12px;
+      }
+      button { cursor: pointer; }
+      button:hover { border-color: #75a6de; }
+      .btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+      .main {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 8px;
+        min-height: 72vh;
+      }
+      .canvasWrap { overflow: auto; min-height: 72vh; }
+      canvas { display: block; background: #060b14; border-radius: 8px; }
+      .status { font-size: 12px; margin-top: 6px; color: var(--muted); }
+      .status.ok { color: var(--ok); }
+      .status.warn { color: var(--warn); }
+      .list {
+        border: 1px solid #365a89;
+        border-radius: 8px;
+        max-height: 360px;
+        overflow: auto;
+        background: rgba(6, 12, 22, 0.8);
+      }
+      .item {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 6px;
+        border-bottom: 1px solid rgba(114, 158, 212, 0.15);
+        font-size: 12px;
+      }
+      .item:last-child { border-bottom: none; }
+      .item.active { background: rgba(76, 201, 240, 0.12); }
+      .thumb {
+        width: 34px;
+        height: 34px;
+        border: 1px solid #4c79aa;
+        border-radius: 6px;
+        background: #081121;
+        image-rendering: pixelated;
+        object-fit: contain;
+      }
+      .mini { font-size: 11px; color: var(--muted); }
+      textarea { min-height: 180px; resize: vertical; }
+      .hint { font-size: 11px; color: var(--muted); line-height: 1.35; }
+      .inline { display: flex; align-items: center; gap: 6px; }
+      .inline input[type="checkbox"] { width: auto; }
+      .previewCanvas {
+        width: 100%;
+        height: auto;
+        border: 1px solid #365a89;
+        border-radius: 8px;
+        background: linear-gradient(180deg, #102038 0%, #0a1423 65%, #091120 100%);
+      }
+      @media (max-width: 1180px) {
+        .topbar { grid-template-columns: 1fr; }
+        .main { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="topbar">
+        <div class="panel">
+          <h1>Slice</h1>
+          <label>Sprite Sheet Image</label>
+          <input id="fileInput" type="file" accept="image/png,image/webp,image/jpeg" />
+          <div class="row2" style="margin-top:6px;">
+            <div>
+              <label>Slice Type</label>
+              <select id="sliceType">
+                <option value="grid">Grid By Cell Size</option>
+                <option value="automatic">Automatic (Alpha)</option>
+              </select>
+            </div>
+            <div>
+              <label>Alpha Threshold</label>
+              <input id="alphaThreshold" type="number" min="0" max="255" value="1" />
+            </div>
+          </div>
+          <div class="row3" style="margin-top:6px;">
+            <div><label>Cell W</label><input id="cellW" type="number" min="1" value="96" /></div>
+            <div><label>Cell H</label><input id="cellH" type="number" min="1" value="96" /></div>
+            <div><label>Padding</label><input id="padding" type="number" min="0" value="0" /></div>
+          </div>
+          <div class="row2" style="margin-top:6px;">
+            <div><label>Offset X</label><input id="offsetX" type="number" value="0" /></div>
+            <div><label>Offset Y</label><input id="offsetY" type="number" value="0" /></div>
+          </div>
+          <div class="btns" style="margin-top:6px;">
+            <button id="sliceBtn">Slice</button>
+            <button id="autoAllBtn">Auto Detect Boxes</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h1>Sprite Editor</h1>
+          <div class="row3">
+            <div><label>Zoom</label><input id="zoom" type="number" min="0.25" max="8" step="0.25" value="2" /></div>
+            <div><label>Selected Index</label><input id="selectedIndex" type="number" min="0" value="0" /></div>
+            <div><label>Name Prefix</label><input id="namePrefix" type="text" value="sprite" /></div>
+          </div>
+          <div class="row3" style="margin-top:6px;">
+            <div><label>Pivot X (0~1)</label><input id="pivotX" type="number" min="0" max="1" step="0.01" value="0.5" /></div>
+            <div><label>Pivot Y (0~1)</label><input id="pivotY" type="number" min="0" max="1" step="0.01" value="0.85" /></div>
+            <div class="inline" style="padding-top:18px;"><input id="snapGrid" type="checkbox" checked /><span class="mini">Snap to pixel</span></div>
+          </div>
+          <div class="btns" style="margin-top:6px;">
+            <button id="setPivotBtn">Set Pivot (Selected)</button>
+            <button id="setPivotAllBtn">Set Pivot (All)</button>
+            <button id="undoBtn">Undo</button>
+            <button id="cancelBtn">Cancel Drag (Esc)</button>
+            <button id="deleteSelBtn">Delete Selected</button>
+            <button id="clearBtn">Clear All</button>
+          </div>
+          <p class="hint" style="margin-top:6px;">캔버스 조작: 박스 내부 드래그=이동, 우하단 핸들 드래그=크기 조정, 빈 공간 드래그=새 박스 생성, 클릭=선택+피벗 적용.</p>
+        </div>
+
+        <div class="panel">
+          <h1>Export</h1>
+          <div class="row2">
+            <div><label>entityType</label><input id="entityType" type="text" value="MERC_TEMPLATE" /></div>
+            <div><label>entityId</label><input id="entityId" type="text" value="MERC_CHELSU" /></div>
+          </div>
+          <div class="row2" style="margin-top:6px;">
+            <div><label>spriteAtlasKey</label><input id="spriteAtlasKey" type="text" value="CHAR_lee" /></div>
+            <div><label>Paste Mode</label><input id="pasteModeHint" type="text" value="Tail 11 cols" readonly /></div>
+          </div>
+          <div class="row3" style="margin-top:6px;">
+            <div><label>Idle Start</label><input id="idleStart" type="number" min="0" value="0" /></div>
+            <div><label>Idle Frames</label><input id="idleFrames" type="number" min="1" value="6" /></div>
+            <div><label>Idle FPS</label><input id="idleFps" type="number" min="1" value="7" /></div>
+          </div>
+          <div class="row3" style="margin-top:6px;">
+            <div><label>Attack Start</label><input id="attackStart" type="number" min="0" value="6" /></div>
+            <div><label>Attack Frames</label><input id="attackFrames" type="number" min="1" value="8" /></div>
+            <div><label>Attack FPS</label><input id="attackFps" type="number" min="1" value="12" /></div>
+          </div>
+          <div class="row2" style="margin-top:6px;">
+            <div><label>Idle Index List (comma)</label><input id="idleIndexList" type="text" value="0,1,2,3,4,5" /></div>
+            <div><label>Attack Index List (comma)</label><input id="attackIndexList" type="text" value="6,7,8,9,10,11,12,13" /></div>
+          </div>
+          <div class="btns" style="margin-top:6px;">
+            <button id="exportBtn">Export JSON</button>
+            <button id="copyBtn">Copy JSON</button>
+            <button id="exportRowBtn">Export combat_units Row</button>
+            <button id="copyRowBtn">Copy Row</button>
+            <button id="exportTailBtn">Export CSV Tail</button>
+            <button id="copyTailBtn">Copy Tail</button>
+            <button id="loadGlobalBtn">Load Global JSON</button>
+            <button id="saveGlobalBtn">Save Global JSON</button>
+          </div>
+          <textarea id="out" readonly></textarea>
+          <textarea id="rowOut" readonly placeholder="combat_units.csv 한 줄 출력"></textarea>
+          <textarea id="tailOut" readonly placeholder="기존 combat_units.csv 행의 마지막 11개 컬럼에 붙여넣기"></textarea>
+          <p id="status" class="status">ready</p>
+        </div>
+      </section>
+
+      <section class="main">
+        <article class="panel canvasWrap">
+          <canvas id="cv" width="1400" height="800"></canvas>
+        </article>
+        <aside class="panel">
+          <h1>Sprites</h1>
+          <div id="spriteList" class="list"></div>
+          <h1 style="margin-top:10px;">Animation Preview</h1>
+          <div class="row2">
+            <div>
+              <label>Mode</label>
+              <select id="previewMode">
+                <option value="idle">Idle Loop</option>
+                <option value="attack">Attack One-shot</option>
+              </select>
+            </div>
+            <div>
+              <label>Scale</label>
+              <input id="previewScale" type="number" min="1" max="8" step="0.5" value="3" />
+            </div>
+          </div>
+          <div class="btns" style="margin-top:6px;">
+            <button id="previewPlayBtn">Play / Pause</button>
+            <button id="previewTriggerBtn">Trigger Attack</button>
+          </div>
+          <div class="row2" style="margin-top:6px;">
+            <div class="inline"><input id="previewLoop" type="checkbox" checked /><span class="mini">Idle Loop</span></div>
+            <div class="inline"><input id="previewFlip" type="checkbox" /><span class="mini">Flip X</span></div>
+          </div>
+          <canvas id="previewCv" class="previewCanvas" width="300" height="220"></canvas>
+          <p class="mini">기준점: 선택된 스프라이트의 피벗을 바닥선에 고정해 게임 연출처럼 표시</p>
+        </aside>
+      </section>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        fileInput: $("fileInput"), sliceType: $("sliceType"), alphaThreshold: $("alphaThreshold"), cellW: $("cellW"), cellH: $("cellH"), padding: $("padding"), offsetX: $("offsetX"), offsetY: $("offsetY"), sliceBtn: $("sliceBtn"), autoAllBtn: $("autoAllBtn"),
+        zoom: $("zoom"), selectedIndex: $("selectedIndex"), namePrefix: $("namePrefix"), pivotX: $("pivotX"), pivotY: $("pivotY"), snapGrid: $("snapGrid"), setPivotBtn: $("setPivotBtn"), setPivotAllBtn: $("setPivotAllBtn"), undoBtn: $("undoBtn"), cancelBtn: $("cancelBtn"), deleteSelBtn: $("deleteSelBtn"), clearBtn: $("clearBtn"),
+        exportBtn: $("exportBtn"), copyBtn: $("copyBtn"), exportRowBtn: $("exportRowBtn"), copyRowBtn: $("copyRowBtn"), exportTailBtn: $("exportTailBtn"), copyTailBtn: $("copyTailBtn"), loadGlobalBtn: $("loadGlobalBtn"), saveGlobalBtn: $("saveGlobalBtn"), out: $("out"), rowOut: $("rowOut"), tailOut: $("tailOut"), entityType: $("entityType"), entityId: $("entityId"), spriteAtlasKey: $("spriteAtlasKey"), idleStart: $("idleStart"), idleFrames: $("idleFrames"), idleFps: $("idleFps"), attackStart: $("attackStart"), attackFrames: $("attackFrames"), attackFps: $("attackFps"), idleIndexList: $("idleIndexList"), attackIndexList: $("attackIndexList"), status: $("status"),
+        cv: $("cv"), spriteList: $("spriteList"),
+        previewCv: $("previewCv"), previewMode: $("previewMode"), previewScale: $("previewScale"), previewPlayBtn: $("previewPlayBtn"), previewTriggerBtn: $("previewTriggerBtn"), previewLoop: $("previewLoop"), previewFlip: $("previewFlip")
+      };
+      const ctx = els.cv.getContext("2d");
+      const pctx = els.previewCv.getContext("2d");
+
+      const state = {
+        img: null,
+        fileName: "",
+        imgCtx: null,
+        globalAtlas: null,
+        globalAtlasHandle: null,
+        sprites: [], // {x,y,w,h,pivotX,pivotY,name,clipIndex}
+        selected: -1,
+        drag: null,
+        history: [],
+        layout: { sx: 12, sy: 12, scale: 2 },
+        preview: {
+          playing: true,
+          mode: "idle",
+          frameCursor: 0,
+          accMs: 0,
+          lastTs: 0,
+          attackOneShot: false,
+        },
+      };
+
+      function n(el, fb) { const v = Number(el.value); return Number.isFinite(v) ? v : fb; }
+      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+      function setStatus(msg, tone) {
+        els.status.textContent = msg;
+        els.status.className = `status ${tone || ""}`.trim();
+      }
+
+      function pushHistory(tag) {
+        state.history.push({ tag, sprites: state.sprites.map((s) => ({ ...s })), selected: state.selected });
+        if (state.history.length > 120) state.history.shift();
+      }
+
+      function ensureCanvasSize() {
+        if (!state.img) return;
+        const scale = clamp(n(els.zoom, 2), 0.25, 8);
+        state.layout.scale = scale;
+        const w = Math.ceil(24 + state.img.width * scale);
+        const h = Math.ceil(24 + state.img.height * scale);
+        if (els.cv.width !== w) els.cv.width = w;
+        if (els.cv.height !== h) els.cv.height = h;
+      }
+
+      function imgToScreen(x, y) {
+        return { x: state.layout.sx + x * state.layout.scale, y: state.layout.sy + y * state.layout.scale };
+      }
+      function screenToImg(mx, my) {
+        const x = (mx - state.layout.sx) / state.layout.scale;
+        const y = (my - state.layout.sy) / state.layout.scale;
+        return { x, y };
+      }
+
+      function renderList() {
+        const root = els.spriteList;
+        root.innerHTML = "";
+        if (state.sprites.length < 1) {
+          root.innerHTML = '<div class="item"><span class="mini">슬라이스 결과 없음</span></div>';
+          return;
+        }
+        state.sprites.forEach((s, i) => {
+          const row = document.createElement("div");
+          row.className = `item ${i === state.selected ? "active" : ""}`;
+          row.addEventListener("click", () => { state.selected = i; syncInspectorFromSelected(); redraw(); renderList(); });
+
+          const c = document.createElement("canvas");
+          c.width = 34; c.height = 34; c.className = "thumb";
+          const t = c.getContext("2d");
+          t.imageSmoothingEnabled = false;
+          if (state.img) t.drawImage(state.img, s.x, s.y, s.w, s.h, 0, 0, 34, 34);
+
+          const name = document.createElement("div");
+          name.innerHTML = `<strong>${s.name}</strong><div class="mini">x:${s.x} y:${s.y} w:${s.w} h:${s.h}</div>`;
+
+          const p = document.createElement("div");
+          p.className = "mini";
+          const idxInput = document.createElement("input");
+          idxInput.type = "number";
+          idxInput.min = "0";
+          idxInput.value = String(Number.isInteger(s.clipIndex) ? s.clipIndex : i);
+          idxInput.style.width = "58px";
+          idxInput.addEventListener("click", (ev) => ev.stopPropagation());
+          idxInput.addEventListener("input", () => {
+            s.clipIndex = Math.max(0, Math.floor(Number(idxInput.value) || 0));
+            drawPreview();
+          });
+          p.textContent = `${s.pivotX.toFixed(2)}, ${s.pivotY.toFixed(2)} `;
+          p.appendChild(idxInput);
+
+          row.appendChild(c);
+          row.appendChild(name);
+          row.appendChild(p);
+          root.appendChild(row);
+        });
+      }
+
+      function redraw() {
+        ctx.clearRect(0, 0, els.cv.width, els.cv.height);
+        ctx.fillStyle = "#060b14";
+        ctx.fillRect(0, 0, els.cv.width, els.cv.height);
+        if (!state.img) {
+          ctx.fillStyle = "#b7d2f3";
+          ctx.font = "16px sans-serif";
+          ctx.fillText("이미지를 로드하세요.", 18, 28);
+          return;
+        }
+        ensureCanvasSize();
+
+        const { sx, sy, scale } = state.layout;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(state.img, sx, sy, state.img.width * scale, state.img.height * scale);
+
+        state.sprites.forEach((s, i) => {
+          const p1 = imgToScreen(s.x, s.y);
+          const p2 = imgToScreen(s.x + s.w, s.y + s.h);
+          ctx.strokeStyle = i === state.selected ? "#ffd166" : "#39d98a";
+          ctx.lineWidth = i === state.selected ? 2.4 : 1.8;
+          ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
+          const px = s.x + s.w * s.pivotX;
+          const py = s.y + s.h * s.pivotY;
+          const pp = imgToScreen(px, py);
+          ctx.strokeStyle = "#4cc9f0";
+          ctx.beginPath();
+          ctx.moveTo(pp.x - 5, pp.y); ctx.lineTo(pp.x + 5, pp.y);
+          ctx.moveTo(pp.x, pp.y - 5); ctx.lineTo(pp.x, pp.y + 5);
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(10,16,26,0.88)";
+          ctx.fillRect(p1.x, p1.y - 14, 30, 12);
+          ctx.fillStyle = "#d9ecff";
+          ctx.font = "10px sans-serif";
+          ctx.fillText(String(i), p1.x + 4, p1.y - 4);
+
+          if (i === state.selected) {
+            ctx.fillStyle = "#ffd166";
+            ctx.fillRect(p2.x - 6, p2.y - 6, 6, 6);
+          }
+        });
+
+        if (state.drag && state.drag.kind === "create") {
+          const d = state.drag;
+          const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
+          const w = Math.abs(d.x1 - d.x0), h = Math.abs(d.y1 - d.y0);
+          const p1 = imgToScreen(x, y), p2 = imgToScreen(x + w, y + h);
+          ctx.setLineDash([4, 3]);
+          ctx.strokeStyle = "#00e5a8";
+          ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+          ctx.setLineDash([]);
+        }
+        drawPreview();
+      }
+
+      function syncInspectorFromSelected() {
+        if (state.selected < 0 || !state.sprites[state.selected]) return;
+        const s = state.sprites[state.selected];
+        els.selectedIndex.value = String(state.selected);
+        els.pivotX.value = s.pivotX.toFixed(2);
+        els.pivotY.value = s.pivotY.toFixed(2);
+      }
+
+      function selectByInput() {
+        const idx = clamp(Math.floor(n(els.selectedIndex, 0)), 0, Math.max(0, state.sprites.length - 1));
+        state.selected = state.sprites.length > 0 ? idx : -1;
+        syncInspectorFromSelected(); redraw(); renderList();
+      }
+
+      function animMeta() {
+        return {
+          idleStart: Math.max(0, Math.floor(n(els.idleStart, 0))),
+          idleFrames: Math.max(1, Math.floor(n(els.idleFrames, 1))),
+          idleFps: Math.max(1, Math.floor(n(els.idleFps, 7))),
+          attackStart: Math.max(0, Math.floor(n(els.attackStart, 0))),
+          attackFrames: Math.max(1, Math.floor(n(els.attackFrames, 1))),
+          attackFps: Math.max(1, Math.floor(n(els.attackFps, 12))),
+        };
+      }
+
+      function spriteAt(globalIdx) {
+        if (globalIdx < 0 || globalIdx >= state.sprites.length) return null;
+        return state.sprites[globalIdx];
+      }
+
+      function parseIndexList(text) {
+        const raw = String(text || "").trim();
+        if (!raw) return [];
+        return raw
+          .split(",")
+          .map((v) => Number(v.trim()))
+          .filter((v) => Number.isInteger(v) && v >= 0);
+      }
+
+      function spriteByClipIndex(idx) {
+        return state.sprites.find((s) => s.clipIndex === idx) ?? null;
+      }
+
+      function previewFrameSprite() {
+        const mode = state.preview.mode;
+        const idleList = parseIndexList(els.idleIndexList.value);
+        const attackList = parseIndexList(els.attackIndexList.value);
+        if (mode === "attack") {
+          if (attackList.length > 0) {
+            return spriteByClipIndex(attackList[state.preview.frameCursor] ?? attackList[attackList.length - 1]);
+          }
+          const m = animMeta();
+          return spriteAt(m.attackStart + state.preview.frameCursor);
+        }
+        if (idleList.length > 0) {
+          return spriteByClipIndex(idleList[state.preview.frameCursor] ?? idleList[idleList.length - 1]);
+        }
+        const m = animMeta();
+        return spriteAt(m.idleStart + state.preview.frameCursor);
+      }
+
+      function stepPreview(dtMs) {
+        const m = animMeta();
+        const mode = state.preview.mode;
+        const fps = mode === "attack" ? m.attackFps : m.idleFps;
+        const idleList = parseIndexList(els.idleIndexList.value);
+        const attackList = parseIndexList(els.attackIndexList.value);
+        const count =
+          mode === "attack"
+            ? (attackList.length > 0 ? attackList.length : m.attackFrames)
+            : (idleList.length > 0 ? idleList.length : m.idleFrames);
+        const step = 1000 / Math.max(1, fps);
+        state.preview.accMs += dtMs;
+        while (state.preview.accMs >= step) {
+          state.preview.accMs -= step;
+          state.preview.frameCursor += 1;
+          if (state.preview.frameCursor >= count) {
+            if (mode === "attack" && state.preview.attackOneShot) {
+              state.preview.mode = "idle";
+              state.preview.frameCursor = 0;
+              state.preview.attackOneShot = false;
+            } else {
+              state.preview.frameCursor = (els.previewLoop.checked || mode === "attack") ? 0 : count - 1;
+            }
+          }
+        }
+      }
+
+      function drawPreview() {
+        const w = els.previewCv.width;
+        const h = els.previewCv.height;
+        pctx.clearRect(0, 0, w, h);
+        pctx.fillStyle = "#0a1423";
+        pctx.fillRect(0, 0, w, h);
+
+        const groundY = h - 24;
+        pctx.strokeStyle = "rgba(130,170,220,0.55)";
+        pctx.beginPath();
+        pctx.moveTo(8, groundY);
+        pctx.lineTo(w - 8, groundY);
+        pctx.stroke();
+
+        const s = previewFrameSprite();
+        if (!state.img || !s) {
+          pctx.fillStyle = "#a7c3e8";
+          pctx.font = "12px sans-serif";
+          pctx.fillText("Idle/Attack 범위를 먼저 설정하세요.", 10, 20);
+          return;
+        }
+        const scale = clamp(n(els.previewScale, 3), 1, 8);
+        const dw = s.w * scale;
+        const dh = s.h * scale;
+        const pivotX = s.pivotX;
+        const pivotY = s.pivotY;
+        const anchorX = Math.floor(w * 0.5);
+        const anchorY = groundY;
+        const left = Math.floor(anchorX - dw * pivotX);
+        const top = Math.floor(anchorY - dh * pivotY);
+
+        pctx.save();
+        if (els.previewFlip.checked) {
+          pctx.translate(anchorX * 2, 0);
+          pctx.scale(-1, 1);
+        }
+        pctx.imageSmoothingEnabled = false;
+        pctx.drawImage(state.img, s.x, s.y, s.w, s.h, left, top, dw, dh);
+        pctx.restore();
+
+        pctx.strokeStyle = "#4cc9f0";
+        pctx.beginPath();
+        pctx.moveTo(anchorX - 6, anchorY);
+        pctx.lineTo(anchorX + 6, anchorY);
+        pctx.moveTo(anchorX, anchorY - 6);
+        pctx.lineTo(anchorX, anchorY + 6);
+        pctx.stroke();
+
+        pctx.fillStyle = "#d6e9ff";
+        pctx.font = "11px sans-serif";
+        pctx.fillText(`mode:${state.preview.mode} frame:${state.preview.frameCursor}`, 8, h - 6);
+      }
+
+      function previewTick(ts) {
+        if (!state.preview.lastTs) state.preview.lastTs = ts;
+        const dt = ts - state.preview.lastTs;
+        state.preview.lastTs = ts;
+        if (state.preview.playing) stepPreview(Math.max(0, dt));
+        drawPreview();
+        window.requestAnimationFrame(previewTick);
+      }
+
+      function sliceGrid() {
+        if (!state.img) return;
+        const cw = Math.max(1, Math.floor(n(els.cellW, 96)));
+        const ch = Math.max(1, Math.floor(n(els.cellH, 96)));
+        const pad = Math.max(0, Math.floor(n(els.padding, 0)));
+        const ox = Math.max(0, Math.floor(n(els.offsetX, 0)));
+        const oy = Math.max(0, Math.floor(n(els.offsetY, 0)));
+
+        const out = [];
+        let idx = 0;
+        for (let y = oy; y + ch <= state.img.height; y += ch + pad) {
+          for (let x = ox; x + cw <= state.img.width; x += cw + pad) {
+            out.push({ x, y, w: cw, h: ch, pivotX: 0.5, pivotY: 0.85, name: `${els.namePrefix.value}_${String(idx).padStart(3, "0")}`, clipIndex: idx });
+            idx += 1;
+          }
+        }
+        state.sprites = out;
+      }
+
+      function sliceAutomatic() {
+        if (!state.imgCtx || !state.img) return;
+        const w = state.img.width;
+        const h = state.img.height;
+        const th = clamp(Math.floor(n(els.alphaThreshold, 1)), 0, 255);
+        const data = state.imgCtx.getImageData(0, 0, w, h).data;
+        const vis = new Uint8Array(w * h);
+        const boxes = [];
+
+        function alphaAt(x, y) { return data[(y * w + x) * 4 + 3]; }
+
+        let idx = 0;
+        for (let y = 0; y < h; y += 1) {
+          for (let x = 0; x < w; x += 1) {
+            const p = y * w + x;
+            if (vis[p] || alphaAt(x, y) <= th) continue;
+            vis[p] = 1;
+            const q = [[x, y]];
+            let qh = 0;
+            let minX = x, minY = y, maxX = x, maxY = y;
+            while (qh < q.length) {
+              const [cx, cy] = q[qh++];
+              if (cx < minX) minX = cx; if (cy < minY) minY = cy;
+              if (cx > maxX) maxX = cx; if (cy > maxY) maxY = cy;
+              const nb = [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]];
+              for (const [nx, ny] of nb) {
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const np = ny * w + nx;
+                if (vis[np] || alphaAt(nx, ny) <= th) continue;
+                vis[np] = 1;
+                q.push([nx, ny]);
+              }
+            }
+            const bw = maxX - minX + 1;
+            const bh = maxY - minY + 1;
+            if (bw < 2 || bh < 2) continue;
+            boxes.push({ x: minX, y: minY, w: bw, h: bh, pivotX: 0.5, pivotY: 0.85, name: `${els.namePrefix.value}_${String(idx).padStart(3, "0")}`, clipIndex: idx });
+            idx += 1;
+          }
+        }
+        boxes.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        state.sprites = boxes;
+      }
+
+      function autoDetectBoxesOnCurrent() {
+        if (!state.imgCtx) return;
+        const th = clamp(Math.floor(n(els.alphaThreshold, 1)), 0, 255);
+        for (let i = 0; i < state.sprites.length; i += 1) {
+          const s = state.sprites[i];
+          const img = state.imgCtx.getImageData(s.x, s.y, s.w, s.h).data;
+          let minX = s.w, minY = s.h, maxX = -1, maxY = -1;
+          for (let y = 0; y < s.h; y += 1) {
+            for (let x = 0; x < s.w; x += 1) {
+              const a = img[(y * s.w + x) * 4 + 3];
+              if (a <= th) continue;
+              if (x < minX) minX = x; if (y < minY) minY = y;
+              if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+            }
+          }
+          if (maxX < minX || maxY < minY) continue;
+          s.x += minX; s.y += minY; s.w = maxX - minX + 1; s.h = maxY - minY + 1;
+        }
+      }
+
+      function hitTestRect(x, y) {
+        for (let i = state.sprites.length - 1; i >= 0; i -= 1) {
+          const s = state.sprites[i];
+          if (x >= s.x && y >= s.y && x <= s.x + s.w && y <= s.y + s.h) return i;
+        }
+        return -1;
+      }
+
+      function beginDrag(ev) {
+        if (!state.img) return;
+        const r = els.cv.getBoundingClientRect();
+        const p = screenToImg(ev.clientX - r.left, ev.clientY - r.top);
+        const x = p.x, y = p.y;
+        const idx = hitTestRect(x, y);
+
+        if (idx >= 0) {
+          state.selected = idx;
+          const s = state.sprites[idx];
+          const onHandle = Math.abs(x - (s.x + s.w)) <= 5 && Math.abs(y - (s.y + s.h)) <= 5;
+          if (onHandle) {
+            state.drag = { kind: "resize", idx, sx: x, sy: y, ox: s.x, oy: s.y, ow: s.w, oh: s.h };
+          } else {
+            state.drag = { kind: "move", idx, sx: x, sy: y, ox: s.x, oy: s.y };
+          }
+          pushHistory("edit");
+        } else {
+          pushHistory("create");
+          state.drag = { kind: "create", x0: x, y0: y, x1: x, y1: y };
+          state.selected = -1;
+        }
+        syncInspectorFromSelected();
+        redraw();
+        renderList();
+      }
+
+      function moveDrag(ev) {
+        if (!state.drag || !state.img) return;
+        const r = els.cv.getBoundingClientRect();
+        const p = screenToImg(ev.clientX - r.left, ev.clientY - r.top);
+        const snap = els.snapGrid.checked;
+        const gx = snap ? Math.round(p.x) : p.x;
+        const gy = snap ? Math.round(p.y) : p.y;
+
+        if (state.drag.kind === "create") {
+          state.drag.x1 = gx; state.drag.y1 = gy;
+        } else if (state.drag.kind === "move") {
+          const s = state.sprites[state.drag.idx];
+          s.x = clamp(Math.round(state.drag.ox + (gx - state.drag.sx)), 0, state.img.width - s.w);
+          s.y = clamp(Math.round(state.drag.oy + (gy - state.drag.sy)), 0, state.img.height - s.h);
+        } else if (state.drag.kind === "resize") {
+          const s = state.sprites[state.drag.idx];
+          s.w = clamp(Math.round(state.drag.ow + (gx - state.drag.sx)), 1, state.img.width - s.x);
+          s.h = clamp(Math.round(state.drag.oh + (gy - state.drag.sy)), 1, state.img.height - s.y);
+        }
+        redraw();
+        renderList();
+      }
+
+      function endDrag() {
+        if (!state.drag || !state.img) return;
+        if (state.drag.kind === "create") {
+          const d = state.drag;
+          const x = Math.round(Math.min(d.x0, d.x1));
+          const y = Math.round(Math.min(d.y0, d.y1));
+          const w = Math.round(Math.abs(d.x1 - d.x0));
+          const h = Math.round(Math.abs(d.y1 - d.y0));
+          if (w > 1 && h > 1) {
+            state.sprites.push({ x: clamp(x, 0, state.img.width - 1), y: clamp(y, 0, state.img.height - 1), w: clamp(w, 1, state.img.width), h: clamp(h, 1, state.img.height), pivotX: 0.5, pivotY: 0.85, name: `${els.namePrefix.value}_${String(state.sprites.length).padStart(3, "0")}`, clipIndex: state.sprites.length });
+            state.selected = state.sprites.length - 1;
+            setStatus("sprite added", "ok");
+          }
+        }
+        state.drag = null;
+        syncInspectorFromSelected();
+        redraw();
+        renderList();
+      }
+
+      function setSelectedPivot() {
+        if (state.selected < 0 || !state.sprites[state.selected]) return;
+        pushHistory("pivot");
+        const s = state.sprites[state.selected];
+        s.pivotX = clamp(n(els.pivotX, 0.5), 0, 1);
+        s.pivotY = clamp(n(els.pivotY, 0.85), 0, 1);
+        redraw(); renderList(); setStatus("pivot updated", "ok");
+      }
+
+      function setAllPivot() {
+        if (state.sprites.length < 1) return;
+        pushHistory("pivot-all");
+        const px = clamp(n(els.pivotX, 0.5), 0, 1);
+        const py = clamp(n(els.pivotY, 0.85), 0, 1);
+        state.sprites.forEach((s) => { s.pivotX = px; s.pivotY = py; });
+        redraw(); renderList(); setStatus("all pivots updated", "ok");
+      }
+
+      function doUndo() {
+        const last = state.history.pop();
+        if (!last) return setStatus("undo empty", "warn");
+        state.sprites = last.sprites;
+        state.selected = last.selected;
+        syncInspectorFromSelected(); redraw(); renderList(); setStatus(`undo: ${last.tag}`, "ok");
+      }
+
+      function exportJson() {
+        const idleList = parseIndexList(els.idleIndexList.value);
+        const attackList = parseIndexList(els.attackIndexList.value);
+        const payload = {
+          spriteSheet: state.fileName,
+          width: state.img?.width ?? 0,
+          height: state.img?.height ?? 0,
+          animation: {
+            idleIndices: idleList,
+            attackIndices: attackList,
+            idleFps: Math.max(1, Math.floor(n(els.idleFps, 7))),
+            attackFps: Math.max(1, Math.floor(n(els.attackFps, 12))),
+          },
+          sprites: state.sprites.map((s, i) => ({
+            index: i,
+            clipIndex: Number.isInteger(s.clipIndex) ? s.clipIndex : i,
+            name: s.name,
+            x: s.x,
+            y: s.y,
+            w: s.w,
+            h: s.h,
+            pivotX: Number(s.pivotX.toFixed(4)),
+            pivotY: Number(s.pivotY.toFixed(4)),
+          })),
+        };
+        els.out.value = JSON.stringify(payload, null, 2);
+        setStatus("json exported", "ok");
+      }
+
+      function buildAtlasEntry() {
+        const idleList = parseIndexList(els.idleIndexList.value);
+        const attackList = parseIndexList(els.attackIndexList.value);
+        return {
+          sheet: state.fileName || "",
+          width: state.img?.width ?? 0,
+          height: state.img?.height ?? 0,
+          animation: {
+            idleIndices: idleList,
+            attackIndices: attackList,
+            idleFps: Math.max(1, Math.floor(n(els.idleFps, 7))),
+            attackFps: Math.max(1, Math.floor(n(els.attackFps, 12))),
+          },
+          sprites: state.sprites.map((s, i) => ({
+            clipIndex: Number.isInteger(s.clipIndex) ? s.clipIndex : i,
+            x: s.x,
+            y: s.y,
+            w: s.w,
+            h: s.h,
+            pivotX: Number((s.pivotX ?? 0.5).toFixed(4)),
+            pivotY: Number((s.pivotY ?? 0.85).toFixed(4)),
+          })),
+        };
+      }
+
+      function applyAtlasEntryToEditor(key, entry) {
+        if (!entry || typeof entry !== "object") return;
+        const list = Array.isArray(entry.sprites) ? entry.sprites : [];
+        state.sprites = list
+          .map((s, i) => ({
+            x: Math.max(0, Math.floor(Number(s.x ?? 0))),
+            y: Math.max(0, Math.floor(Number(s.y ?? 0))),
+            w: Math.max(1, Math.floor(Number(s.w ?? 1))),
+            h: Math.max(1, Math.floor(Number(s.h ?? 1))),
+            pivotX: clamp(Number(s.pivotX ?? 0.5), 0, 1),
+            pivotY: clamp(Number(s.pivotY ?? 0.85), 0, 1),
+            name: `${els.namePrefix.value}_${String(i).padStart(3, "0")}`,
+            clipIndex: Number.isInteger(s.clipIndex) ? s.clipIndex : i,
+          }))
+          .sort((a, b) => a.clipIndex - b.clipIndex);
+        state.selected = state.sprites.length > 0 ? 0 : -1;
+        const anim = entry.animation || {};
+        const idleIndices = Array.isArray(anim.idleIndices) ? anim.idleIndices : [];
+        const attackIndices = Array.isArray(anim.attackIndices) ? anim.attackIndices : [];
+        els.idleIndexList.value = idleIndices.join(",");
+        els.attackIndexList.value = attackIndices.join(",");
+        if (Number.isFinite(Number(anim.idleFps))) {
+          els.idleFps.value = String(Math.max(1, Math.floor(Number(anim.idleFps))));
+        }
+        if (Number.isFinite(Number(anim.attackFps))) {
+          els.attackFps.value = String(Math.max(1, Math.floor(Number(anim.attackFps))));
+        }
+        if (idleIndices.length > 0) els.idleFrames.value = String(idleIndices.length);
+        if (attackIndices.length > 0) els.attackFrames.value = String(attackIndices.length);
+        if (entry.sheet) state.fileName = String(entry.sheet);
+        if (key) els.spriteAtlasKey.value = key;
+        syncInspectorFromSelected();
+        redraw();
+        renderList();
+      }
+
+      function setLoadedImage(img, fileName) {
+        state.img = img;
+        state.fileName = fileName || state.fileName;
+        const off = document.createElement("canvas");
+        off.width = img.width;
+        off.height = img.height;
+        const offCtx = off.getContext("2d");
+        offCtx.drawImage(img, 0, 0);
+        state.imgCtx = offCtx;
+        ensureCanvasSize();
+      }
+
+      async function loadImageFromAssets(fileName) {
+        if (!fileName) return false;
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            setLoadedImage(img, fileName);
+            resolve(true);
+          };
+          img.onerror = () => resolve(false);
+          img.src = `/assets/sprites/${encodeURIComponent(fileName)}`;
+        });
+      }
+
+      async function readGlobalAtlasFromServer() {
+        const res = await fetch("/assets/sprites/sprite_atlas.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        return json && typeof json === "object" ? json : {};
+      }
+
+      async function loadGlobalAtlas() {
+        try {
+          let atlas = null;
+          if (window.showOpenFilePicker) {
+            const handles = await window.showOpenFilePicker({
+              multiple: false,
+              types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+            });
+            const handle = handles?.[0];
+            if (handle) {
+              const file = await handle.getFile();
+              atlas = JSON.parse(await file.text());
+              state.globalAtlasHandle = handle;
+            }
+          }
+          if (!atlas) {
+            atlas = await readGlobalAtlasFromServer();
+            state.globalAtlasHandle = null;
+          }
+          state.globalAtlas = atlas;
+          const key = String(els.spriteAtlasKey.value || "").trim();
+          const entry = key ? atlas[key] : null;
+          if (!entry) {
+            setStatus(`global loaded (${Object.keys(atlas).length} keys), key not found`, "warn");
+            return;
+          }
+          const imageLoaded = await loadImageFromAssets(entry.sheet || "");
+          applyAtlasEntryToEditor(key, entry);
+          setStatus(imageLoaded ? `global key loaded: ${key}` : `key loaded, image missing: ${key}`, imageLoaded ? "ok" : "warn");
+        } catch (err) {
+          setStatus(`global load failed: ${String(err?.message || err)}`, "warn");
+        }
+      }
+
+      function downloadTextFile(name, text) {
+        const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      async function saveGlobalAtlas() {
+        try {
+          const key = String(els.spriteAtlasKey.value || "").trim();
+          if (!key) return setStatus("spriteAtlasKey required", "warn");
+          if (!state.img || !state.fileName) return setStatus("sprite sheet not loaded", "warn");
+          const atlas = state.globalAtlas || await readGlobalAtlasFromServer();
+          atlas[key] = buildAtlasEntry();
+          state.globalAtlas = atlas;
+          const text = JSON.stringify(atlas, null, 2);
+          if (state.globalAtlasHandle?.createWritable) {
+            const writable = await state.globalAtlasHandle.createWritable();
+            await writable.write(text);
+            await writable.close();
+            setStatus(`global saved: ${key}`, "ok");
+            return;
+          }
+          if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: "sprite_atlas.json",
+              types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(text);
+            await writable.close();
+            state.globalAtlasHandle = handle;
+            setStatus(`global saved: ${key}`, "ok");
+            return;
+          }
+          downloadTextFile("sprite_atlas.json", text);
+          setStatus("global saved as download", "ok");
+        } catch (err) {
+          setStatus(`global save failed: ${String(err?.message || err)}`, "warn");
+        }
+      }
+
+
+      function buildCombatUnitRow() {
+        const s = state.selected >= 0 ? state.sprites[state.selected] : null;
+        const px = s ? s.pivotX : clamp(n(els.pivotX, 0.5), 0, 1);
+        const py = s ? s.pivotY : clamp(n(els.pivotY, 0.85), 0, 1);
+        const idleParsed = parseIndexList(els.idleIndexList.value);
+        const attackParsed = parseIndexList(els.attackIndexList.value);
+        const idleList = idleParsed.join("|");
+        const attackList = attackParsed.join("|");
+        const idleFrames = Math.max(1, idleParsed.length || Math.floor(n(els.idleFrames, 6)));
+        const attackFrames = Math.max(1, attackParsed.length || Math.floor(n(els.attackFrames, 8)));
+        const atlasKey = String(els.spriteAtlasKey.value || "").trim();
+        const cols = [
+          String(els.entityType.value || "MERC_TEMPLATE").trim(),
+          String(els.entityId.value || "").trim(),
+          String(state.fileName || ""),
+          String(Math.max(1, Math.floor(n(els.cellW, 96)))),
+          String(Math.max(1, Math.floor(n(els.cellH, 96)))),
+          String(Math.max(0, Math.floor(n(els.idleStart, 0)))),
+          String(idleFrames),
+          String(Math.max(0, Math.floor(n(els.attackStart, 6)))),
+          String(attackFrames),
+          String(Math.max(1, Math.floor(n(els.idleFps, 7)))),
+          String(Math.max(1, Math.floor(n(els.attackFps, 12)))),
+          px.toFixed(4),
+          py.toFixed(4),
+          idleList,
+          attackList,
+          String(Math.max(1, Math.floor(n(els.cellW, 96)))),
+          String(Math.max(1, Math.floor(n(els.cellH, 96)))),
+          String(idleFrames),
+          String(attackFrames),
+          String(Math.max(1, Math.floor(n(els.idleFps, 7)))),
+          String(Math.max(1, Math.floor(n(els.attackFps, 12)))),
+          atlasKey
+        ];
+        return cols.join(",");
+      }
+
+      function exportCombatRow() {
+        const header = "entityType,entityId,spriteSheet,spriteFrameWidth,spriteFrameHeight,spriteIdleStart,spriteIdleFrames,spriteAttackStart,spriteAttackFrames,spriteIdleFps,spriteAttackFps,spritePivotX,spritePivotY,spriteIdleIndexList,spriteAttackIndexList,spriteFrameWidth,spriteFrameHeight,spriteIdleFrames,spriteAttackFrames,spriteIdleFps,spriteAttackFps,spriteAtlasKey";
+        const row = buildCombatUnitRow();
+        els.rowOut.value = `${header}\n${row}`;
+        setStatus("combat_units row exported", "ok");
+      }
+
+      function buildCsvTail() {
+        const s = state.selected >= 0 ? state.sprites[state.selected] : null;
+        const px = s ? s.pivotX : clamp(n(els.pivotX, 0.5), 0, 1);
+        const py = s ? s.pivotY : clamp(n(els.pivotY, 0.85), 0, 1);
+        const idleParsed = parseIndexList(els.idleIndexList.value);
+        const attackParsed = parseIndexList(els.attackIndexList.value);
+        const idleFrames = Math.max(1, idleParsed.length || Math.floor(n(els.idleFrames, 6)));
+        const attackFrames = Math.max(1, attackParsed.length || Math.floor(n(els.attackFrames, 8)));
+        const atlasKey = String(els.spriteAtlasKey.value || "").trim();
+        return [
+          px.toFixed(4),
+          py.toFixed(4),
+          idleParsed.join("|"),
+          attackParsed.join("|"),
+          String(Math.max(1, Math.floor(n(els.cellW, 96)))),
+          String(Math.max(1, Math.floor(n(els.cellH, 96)))),
+          String(idleFrames),
+          String(attackFrames),
+          String(Math.max(1, Math.floor(n(els.idleFps, 7)))),
+          String(Math.max(1, Math.floor(n(els.attackFps, 12)))),
+          atlasKey,
+        ].join("\t");
+      }
+
+      function exportTail() {
+        els.tailOut.value = buildCsvTail();
+        setStatus("csv tail exported (tab separated)", "ok");
+      }
+
+      async function copyCombatRow() {
+        if (!els.rowOut.value) exportCombatRow();
+        try {
+          await navigator.clipboard.writeText(els.rowOut.value);
+          setStatus("row copied", "ok");
+        } catch {
+          setStatus("row copy failed", "warn");
+        }
+      }
+      async function copyJson() {
+        if (!els.out.value) return;
+        try {
+          await navigator.clipboard.writeText(els.out.value);
+          setStatus("copied", "ok");
+        } catch {
+          setStatus("clipboard failed", "warn");
+        }
+      }
+
+      async function copyTail() {
+        if (!els.tailOut.value) exportTail();
+        try {
+          await navigator.clipboard.writeText(els.tailOut.value);
+          setStatus("tail copied", "ok");
+        } catch {
+          setStatus("tail copy failed", "warn");
+        }
+      }
+
+      els.fileInput.addEventListener("change", (ev) => {
+        const file = ev.target.files?.[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          state.img = img;
+          state.fileName = file.name;
+          state.sprites = [];
+          state.selected = -1;
+          state.history = [];
+          state.drag = null;
+
+          const off = document.createElement("canvas");
+          off.width = img.width;
+          off.height = img.height;
+          const offCtx = off.getContext("2d");
+          offCtx.drawImage(img, 0, 0);
+          state.imgCtx = offCtx;
+
+          ensureCanvasSize();
+          redraw();
+          renderList();
+          setStatus(`loaded: ${file.name} (${img.width}x${img.height})`, "ok");
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => setStatus("image load failed", "warn");
+        img.src = url;
+      });
+
+      els.sliceBtn.addEventListener("click", () => {
+        if (!state.img) return;
+        pushHistory("slice");
+        if (els.sliceType.value === "automatic") sliceAutomatic(); else sliceGrid();
+        state.selected = state.sprites.length > 0 ? 0 : -1;
+        syncInspectorFromSelected(); redraw(); renderList();
+        setStatus(`slice done: ${state.sprites.length}`, "ok");
+      });
+
+      els.autoAllBtn.addEventListener("click", () => {
+        if (!state.img) return;
+        pushHistory("auto-detect");
+        autoDetectBoxesOnCurrent();
+        redraw(); renderList();
+        setStatus("auto detect done", "ok");
+      });
+
+      els.undoBtn.addEventListener("click", doUndo);
+      els.cancelBtn.addEventListener("click", () => { state.drag = null; redraw(); setStatus("drag canceled", "warn"); });
+      els.deleteSelBtn.addEventListener("click", () => {
+        if (state.selected < 0) return;
+        pushHistory("delete");
+        state.sprites.splice(state.selected, 1);
+        state.selected = Math.min(state.selected, state.sprites.length - 1);
+        syncInspectorFromSelected(); redraw(); renderList();
+      });
+      els.clearBtn.addEventListener("click", () => {
+        pushHistory("clear");
+        state.sprites = []; state.selected = -1;
+        redraw(); renderList();
+      });
+
+      els.setPivotBtn.addEventListener("click", setSelectedPivot);
+      els.setPivotAllBtn.addEventListener("click", setAllPivot);
+
+      els.selectedIndex.addEventListener("input", selectByInput);
+      [els.zoom, els.idleStart, els.idleFrames, els.idleFps, els.attackStart, els.attackFrames, els.attackFps, els.previewScale].forEach((el) =>
+        el.addEventListener("input", () => {
+          state.preview.frameCursor = 0;
+          state.preview.accMs = 0;
+          redraw();
+        }),
+      );
+      els.previewMode.addEventListener("change", () => {
+        state.preview.mode = els.previewMode.value === "attack" ? "attack" : "idle";
+        state.preview.frameCursor = 0;
+        state.preview.accMs = 0;
+        state.preview.attackOneShot = false;
+        redraw();
+      });
+      els.previewPlayBtn.addEventListener("click", () => {
+        state.preview.playing = !state.preview.playing;
+        setStatus(state.preview.playing ? "preview play" : "preview pause", "ok");
+      });
+      els.previewTriggerBtn.addEventListener("click", () => {
+        state.preview.mode = "attack";
+        els.previewMode.value = "attack";
+        state.preview.frameCursor = 0;
+        state.preview.accMs = 0;
+        state.preview.attackOneShot = true;
+        state.preview.playing = true;
+        redraw();
+      });
+      els.previewFlip.addEventListener("change", redraw);
+      els.previewLoop.addEventListener("change", redraw);
+
+      els.exportBtn.addEventListener("click", exportJson);
+      els.exportRowBtn.addEventListener("click", exportCombatRow);
+      els.exportTailBtn.addEventListener("click", exportTail);
+      els.copyBtn.addEventListener("click", copyJson);
+      els.copyRowBtn.addEventListener("click", copyCombatRow);
+      els.copyTailBtn.addEventListener("click", copyTail);
+      els.loadGlobalBtn.addEventListener("click", loadGlobalAtlas);
+      els.saveGlobalBtn.addEventListener("click", saveGlobalAtlas);
+
+      els.cv.addEventListener("mousedown", beginDrag);
+      window.addEventListener("mousemove", moveDrag);
+      window.addEventListener("mouseup", endDrag);
+
+      els.cv.addEventListener("click", (ev) => {
+        if (!state.img || state.drag) return;
+        const r = els.cv.getBoundingClientRect();
+        const p = screenToImg(ev.clientX - r.left, ev.clientY - r.top);
+        const idx = hitTestRect(p.x, p.y);
+        if (idx >= 0) {
+          state.selected = idx;
+          const s = state.sprites[idx];
+          const nx = clamp((p.x - s.x) / s.w, 0, 1);
+          const ny = clamp((p.y - s.y) / s.h, 0, 1);
+          s.pivotX = nx; s.pivotY = ny;
+          syncInspectorFromSelected(); redraw(); renderList();
+        }
+      });
+
+      window.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") { state.drag = null; redraw(); setStatus("drag canceled", "warn"); }
+      });
+
+      redraw();
+      renderList();
+      window.requestAnimationFrame(previewTick);
+    </script>
+  </body>
+</html>
+
+

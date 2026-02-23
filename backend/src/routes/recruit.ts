@@ -20,7 +20,20 @@ export async function recruitRoutes(app: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return reply.code(404).send({ ok: false, error: "USER_NOT_FOUND" });
 
-    const template = dataRegistry.getTemplate(offer.templateId);
+    const template = dataRegistry.getTemplateOrNull(offer.templateId);
+    if (!template) {
+      const office = dataRegistry.getOfficeLevel(user.officeLevel);
+      const expiresAt = new Date(Date.now() + office.offerResetSeconds * 1000);
+      await prisma.offer.update({
+        where: { userId_slotIndex: { userId, slotIndex } },
+        data: {
+          templateId: createOfferTemplateId(office.minGrade, office.maxGrade),
+          expiresAt,
+          seed: makeSeed(),
+        },
+      });
+      return reply.code(409).send({ ok: false, error: "OFFER_TEMPLATE_REFRESHED" });
+    }
     const talentTag = previewTalentTagFromSeed(offer.seed);
     if (user.credits < template.recruitCostCredits) {
       return reply.code(400).send({ ok: false, error: "NOT_ENOUGH_CREDITS" });

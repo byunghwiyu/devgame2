@@ -44,4 +44,23 @@ export async function profileRoutes(app: FastifyInstance) {
       },
     };
   });
+
+  app.post("/profile/cheat-credits", async (request, reply) => {
+    const userId = await requireUserId(request, reply);
+    if (!userId) return;
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { credits: { increment: 100000 } },
+      select: { credits: true },
+    });
+
+    return {
+      ok: true,
+      data: {
+        gained: 100000,
+        credits: updated.credits,
+      },
+    };
+  });
 }

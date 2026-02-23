@@ -33,6 +33,7 @@ export const api = {
     req<{ token: string }>("/auth/login", { method: "POST", body: JSON.stringify({ account, password }) }),
   guestAuth: () => req<{ token: string }>("/auth/guest", { method: "POST", body: "{}" }),
   profile: (token: string) => req<ProfileData>("/profile", { method: "GET" }, token),
+  cheatCredits: (token: string) => req<{ gained: number; credits: number }>("/profile/cheat-credits", { method: "POST", body: "{}" }, token),
   offers: (token: string) => req<OfferCard[]>("/offers", { method: "GET" }, token),
   rerollOffers: (token: string) => req<unknown>("/offers/reroll", { method: "POST", body: "{}" }, token),
   recruit: (token: string, slotIndex: number) =>
@@ -63,6 +64,7 @@ export const api = {
     req<BattleState>("/battle/start", { method: "POST", body: JSON.stringify({ locationId, partyIds }) }, token),
   battleConfig: () => req<BattleConfig>("/battle/config", { method: "GET" }),
   battleCurrent: (token: string) => req<BattleState | null>("/battle/current", { method: "GET" }, token),
+  battleList: (token: string) => req<BattleState[]>("/battle/list", { method: "GET" }, token),
   battleState: (token: string, sessionId: string) =>
     req<BattleState>(`/battle/state?sessionId=${encodeURIComponent(sessionId)}`, { method: "GET" }, token),
   battleRetreat: (token: string, sessionId: string) =>

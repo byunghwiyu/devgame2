@@ -1,6 +1,7 @@
-﻿# templateId: character template id, name: display name, grade: rarity tier, roleTag: role, baseStat: base power stat, recruitCostCredits: recruit cost, recruitWeight: offer roll weight, traitLine: flavor trait text, upgradePathA: promotion route A, upgradePathB: promotion route B
-templateId,name,grade,roleTag,baseStat,recruitCostCredits,recruitWeight,traitLine,upgradePathA,upgradePathB
-CHAR_LABORER_A,막노동꾼 철수,1,tank,42,180,45,현장 버티기에 능한 베테랑,강철근육,민첩방패
-CHAR_LABORER_B,돌격반 영희,1,dps,47,200,40,타격형 일손으로 처리속도가 빠르다,연속타격,정밀일격
-CHAR_SPECIAL_A,현장반장 만수,2,support,58,380,12,작업 동선을 최적화해 팀 효율을 높인다,지휘강화,전술지원
-CHAR_HERO_A,전설의 십장,3,dps,78,820,3,고난도 현장에서 압도적인 성과를 낸다,폭풍작업,철혈진군
+﻿# templateId: character template id, name: display name, grade: rarity tier, roleTag: role, baseStat: base power stat, recruitCostCredits: recruit cost, recruitWeight: offer roll weight, traitLine: flavor trait text, imageUrl: character illustration path/url
+templateId,name,grade,roleTag,baseStat,recruitCostCredits,recruitWeight,traitLine,imageUrl
+CHAR_chelsu,김철수,1,tank,42,180,45,항상 전방에서 적을 받아내는 강인한 전사,char_chelsu
+CHAR_sehee,조세희,1,dps,47,200,40,양궁 국가대표 출신의 매서운 저격수,char_sehee
+CHAR_sera,미즈하라 세나,2,support,58,380,12,기도하는 소녀,char_sera
+CHAR_hong,홍련,2,support,58,380,12,적염 홍가의 후계자,char_hong
+CHAR_lee,이세리,2,support,58,380,12,도봉산에서 수련하던 신선 지망생,char_lee

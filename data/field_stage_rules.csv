@@ -1,0 +1,8 @@
+﻿# locationId: field id, battleStageWeight/exploreStageWeight: normal stage probabilities
+# bossEveryStageClears: enter boss stage on each N clears
+# hiddenEveryStageClears + hiddenEnterChance: each N clears, hidden entry chance
+locationId,battleStageWeight,exploreStageWeight,bossEveryStageClears,hiddenEveryStageClears,hiddenEnterChance
+SITE_ALPHA,0.8,0.2,100,20,0.2
+SITE_BRAVO,0.8,0.2,100,20,0.2
+SITE_CHARLIE,0.8,0.2,100,20,0.2
+SITE_DELTA,0.8,0.2,100,20,0.2

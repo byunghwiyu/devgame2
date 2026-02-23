@@ -1,12 +1,22 @@
 import crypto from "node:crypto";
 import type { Equipment, Mercenary } from "@prisma/client";
-import { dataRegistry, type CombatSkillRow, type CombatUnitRow, type LocationRow, type MonsterDropRow } from "../data/registry.js";
+import {
+  dataRegistry,
+  type CombatSkillRow,
+  type CombatUnitRow,
+  type FieldStageEncounterRow,
+  type FieldStageRuleRow,
+  type LocationRow,
+  type MonsterDropRow,
+  weightedPick,
+} from "../data/registry.js";
 import { prisma } from "../plugins/prisma.js";
 import { calcEquipBonus, levelUpWithExp } from "./game.js";
 
 type Side = "ALLY" | "ENEMY";
 type BattleStatus = "IN_PROGRESS" | "RETREAT";
 type BattlePhase = "EXPLORE" | "BATTLE" | "LOOT";
+type StageType = "BATTLE" | "EXPLORE" | "BOSS" | "HIDDEN";
 
 type RuntimeStats = {
   maxHp: number;
@@ -36,6 +46,19 @@ type RuntimeCombatant = {
   side: Side;
   name: string;
   spriteUrl: string;
+  spriteIdle?: string;
+  spriteAttack?: string;
+  spriteFrameWidth?: number;
+  spriteFrameHeight?: number;
+  spriteIdleFrames?: number;
+  spriteAttackFrames?: number;
+  spriteIdleFps?: number;
+  spriteAttackFps?: number;
+  spritePivotX?: number;
+  spritePivotY?: number;
+  spriteIdleIndexList?: number[];
+  spriteAttackIndexList?: number[];
+  spriteAtlasKey?: string;
   sourceType: "MERC_TEMPLATE" | "MONSTER_TEMPLATE";
   sourceId: string;
   mercenaryId?: string;
@@ -45,8 +68,6 @@ type RuntimeCombatant = {
   skills: CombatSkillRow[];
 };
 
-type BattleWave = { waveIndex: number; units: Array<{ monsterTemplateId: string; count: number }> };
-
 type PendingDrop = {
   itemId: string;
   itemName: string;
@@ -55,30 +76,53 @@ type PendingDrop = {
   statValue: number;
 };
 
+type CombatEvent = {
+  seq: number;
+  kind: "hit" | "heal" | "miss" | "skill" | "drop" | "counter";
+  attackerId?: string;
+  attackerName?: string;
+  attackerSide?: Side;
+  targetId?: string;
+  targetName?: string;
+  targetSide?: Side;
+  value?: number;
+  text: string;
+};
+
 type BattleSession = {
   id: string;
   userId: string;
   location: LocationRow;
+  stageRule: FieldStageRuleRow;
   partyIds: string[];
   allies: RuntimeCombatant[];
   enemies: RuntimeCombatant[];
   initialAllies: RuntimeCombatant[];
-  waves: BattleWave[];
-  waveCursor: number;
   phase: BattlePhase;
+  status: BattleStatus;
   gaugePercent: number;
   updatedAtMs: number;
-  status: BattleStatus;
-  logs: string[];
+  startedAtMs: number;
   resultApplied: boolean;
-  retryCount: number;
+  logs: string[];
+  combatEvents: CombatEvent[];
+  combatSeq: number;
+  stageNo: number;
+  currentStageType: StageType;
   clearCount: number;
-  rewardCredits: number;
-  rewardExp: number;
-  rewardMaterialA: number;
-  rewardMaterialB: number;
+  retryCount: number;
+  totalKills: number;
+  killByEnemyId: Record<string, number>;
   pendingDrops: PendingDrop[];
   totalDrops: PendingDrop[];
+  stageReward: { credits: number; exp: number; materialA: number; materialB: number };
+  totalReward: { credits: number; exp: number; materialA: number; materialB: number };
+  attackBuffPct: number;
+  defenseBuffPct: number;
+  buffBattleStagesLeft: number;
+  turnQueue: string[];
+  turnCursor: number;
+  actionTurn: number;
 };
 
 export type BattleStateView = {
@@ -90,13 +134,74 @@ export type BattleStateView = {
   locationName: string;
   locationImageUrl: string;
   waveIndex: number;
-  allies: Array<{ id: string; name: string; hp: number; maxHp: number; mana: number; maxMana: number; alive: boolean; spriteUrl: string }>;
-  enemies: Array<{ id: string; name: string; hp: number; maxHp: number; mana: number; maxMana: number; alive: boolean; spriteUrl: string }>;
+  stageType: StageType;
+  allies: Array<{
+    id: string;
+    entityId?: string;
+    name: string;
+    hp: number;
+    maxHp: number;
+    mana: number;
+    maxMana: number;
+    alive: boolean;
+    spriteUrl: string;
+    spriteIdle?: string;
+    spriteAttack?: string;
+    spriteFrameWidth?: number;
+    spriteFrameHeight?: number;
+    spriteIdleFrames?: number;
+    spriteAttackFrames?: number;
+    spriteIdleFps?: number;
+    spriteAttackFps?: number;
+    spritePivotX?: number;
+    spritePivotY?: number;
+    spriteIdleIndexList?: number[];
+    spriteAttackIndexList?: number[];
+    spriteAtlasKey?: string;
+  }>;
+  enemies: Array<{
+    id: string;
+    entityId?: string;
+    name: string;
+    hp: number;
+    maxHp: number;
+    mana: number;
+    maxMana: number;
+    alive: boolean;
+    spriteUrl: string;
+    spriteIdle?: string;
+    spriteAttack?: string;
+    spriteFrameWidth?: number;
+    spriteFrameHeight?: number;
+    spriteIdleFrames?: number;
+    spriteAttackFrames?: number;
+    spriteIdleFps?: number;
+    spriteAttackFps?: number;
+    spritePivotX?: number;
+    spritePivotY?: number;
+    spriteIdleIndexList?: number[];
+    spriteAttackIndexList?: number[];
+    spriteAtlasKey?: string;
+  }>;
   logs: string[];
   reward: { credits: number; exp: number; materialA: number; materialB: number };
   retryCount: number;
   clearCount: number;
+  actionTurn: number;
   droppedItems: Array<{ itemId: string; itemName: string; equipType: string; grade: number; statValue: number }>;
+  combatEvents: CombatEvent[];
+  report: {
+    elapsedSeconds: number;
+    clearCount: number;
+    retryCount: number;
+    gainedExp: number;
+    gainedCredits: number;
+    materialA: number;
+    materialB: number;
+    totalKills: number;
+    killsByEnemy: Array<{ enemyId: string; enemyName: string; spriteUrl: string; count: number }>;
+    expPerSecond: number;
+  };
 };
 
 function clamp(v: number, min: number, max: number): number {
@@ -113,25 +218,50 @@ function pickLowestHp(list: RuntimeCombatant[]): RuntimeCombatant | undefined {
   return a.sort((x, y) => x.hp / x.stats.maxHp - y.hp / y.stats.maxHp)[0];
 }
 
+function pushEvent(session: BattleSession, event: Omit<CombatEvent, "seq">): void {
+  session.combatSeq += 1;
+  session.combatEvents.push({ seq: session.combatSeq, ...event });
+  if (session.combatEvents.length > 160) {
+    session.combatEvents = session.combatEvents.slice(-160);
+  }
+}
+
 class BattleService {
   private sessions = new Map<string, BattleSession>();
-  private sessionByUser = new Map<string, string>();
+  private sessionIdsByUser = new Map<string, Set<string>>();
+
+  private async reconcileDispatchState(userId: string): Promise<void> {
+    const ids = this.sessionIdsByUser.get(userId);
+    const activePartyIds = new Set<string>();
+    if (ids) {
+      for (const id of ids) {
+        const session = this.sessions.get(id);
+        if (!session || session.userId !== userId) continue;
+        if (session.status !== "IN_PROGRESS") continue;
+        for (const pid of session.partyIds) activePartyIds.add(pid);
+      }
+    }
+    await prisma.mercenary.updateMany({ where: { userId }, data: { isDispatched: false } });
+    if (activePartyIds.size > 0) {
+      await prisma.mercenary.updateMany({
+        where: { userId, id: { in: Array.from(activePartyIds) } },
+        data: { isDispatched: true },
+      });
+    }
+  }
 
   async startBattle(userId: string, locationId: string, partyIds: string[]): Promise<BattleStateView> {
-    if (this.sessionByUser.has(userId)) {
-      const existing = this.sessions.get(this.sessionByUser.get(userId)!);
-      if (existing && existing.status === "IN_PROGRESS") throw new Error("BATTLE_ALREADY_IN_PROGRESS");
-    }
-
+    await this.reconcileDispatchState(userId);
     const location = dataRegistry.getLocation(locationId);
     if (!location.isOpen) throw new Error("LOCATION_NOT_OPEN");
-
-    const waves = this.buildWaves(locationId);
-    if (waves.length < 1) throw new Error("LOCATION_WAVE_NOT_FOUND");
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error("USER_NOT_FOUND");
+    if (user.officeLevel < location.difficulty) throw new Error("LOCATION_LOCKED_BY_LEVEL");
 
     const mercs = await prisma.mercenary.findMany({ where: { userId, id: { in: partyIds } } });
     if (mercs.length !== partyIds.length) throw new Error("INVALID_PARTY_MEMBERS");
     if (mercs.some((m) => m.isDispatched)) throw new Error("MERC_ALREADY_DISPATCHED");
+    if (partyIds.length > 4) throw new Error("PARTY_LIMIT_EXCEEDED");
 
     const equips = await prisma.equipment.findMany({ where: { userId, equippedMercId: { in: partyIds } } });
     await prisma.mercenary.updateMany({ where: { userId, id: { in: partyIds } }, data: { isDispatched: true } });
@@ -142,39 +272,63 @@ class BattleService {
       id,
       userId,
       location,
+      stageRule: dataRegistry.getFieldStageRule(locationId),
       partyIds: [...partyIds],
       allies,
       enemies: [],
       initialAllies: allies.map((a) => this.cloneCombatant(a)),
-      waves,
-      waveCursor: 0,
       phase: "EXPLORE",
+      status: "IN_PROGRESS",
       gaugePercent: 0,
       updatedAtMs: Date.now(),
-      status: "IN_PROGRESS",
-      logs: [`${location.name} 파견 시작`, dataRegistry.getRandomExploreText()],
+      startedAtMs: Date.now(),
       resultApplied: false,
-      retryCount: 0,
+      logs: [`${location.name} 파견 시작`],
+      combatEvents: [],
+      combatSeq: 0,
+      stageNo: 0,
+      currentStageType: "EXPLORE",
       clearCount: 0,
-      rewardCredits: location.baseCreditReward,
-      rewardExp: location.baseExpReward,
-      rewardMaterialA: location.materialAReward,
-      rewardMaterialB: location.materialBReward,
+      retryCount: 0,
+      totalKills: 0,
+      killByEnemyId: {},
       pendingDrops: [],
       totalDrops: [],
+      stageReward: { credits: 0, exp: 0, materialA: 0, materialB: 0 },
+      totalReward: { credits: 0, exp: 0, materialA: 0, materialB: 0 },
+      attackBuffPct: 0,
+      defenseBuffPct: 0,
+      buffBattleStagesLeft: 0,
+      turnQueue: [],
+      turnCursor: 0,
+      actionTurn: 0,
     };
     this.sessions.set(id, session);
-    this.sessionByUser.set(userId, id);
+    if (!this.sessionIdsByUser.has(userId)) this.sessionIdsByUser.set(userId, new Set());
+    this.sessionIdsByUser.get(userId)!.add(id);
     return this.toView(session);
   }
 
   async getCurrent(userId: string): Promise<BattleStateView | null> {
-    const id = this.sessionByUser.get(userId);
-    if (!id) return null;
-    const session = this.sessions.get(id);
-    if (!session) return null;
-    await this.advance(session);
-    return this.toView(session);
+    const list = await this.listByUser(userId);
+    return list[0] ?? null;
+  }
+
+  async listByUser(userId: string): Promise<BattleStateView[]> {
+    const ids = this.sessionIdsByUser.get(userId);
+    if (!ids || ids.size < 1) {
+      await this.reconcileDispatchState(userId);
+      return [];
+    }
+    const out: BattleStateView[] = [];
+    for (const id of ids) {
+      const session = this.sessions.get(id);
+      if (!session) continue;
+      await this.advance(session);
+      out.push(this.toView(session));
+    }
+    out.sort((a, b) => (a.status === "IN_PROGRESS" && b.status !== "IN_PROGRESS" ? -1 : 1));
+    return out;
   }
 
   async getState(userId: string, sessionId: string): Promise<BattleStateView> {
@@ -189,7 +343,7 @@ class BattleService {
     if (!session || session.userId !== userId) throw new Error("BATTLE_NOT_FOUND");
     if (session.status === "IN_PROGRESS") {
       session.status = "RETREAT";
-      session.logs.push("플레이어가 후퇴했습니다.");
+      session.logs.push("철수");
     }
     await this.applyResult(session);
     return this.toView(session);
@@ -198,29 +352,20 @@ class BattleService {
   async close(userId: string, sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session || session.userId !== userId) throw new Error("BATTLE_NOT_FOUND");
-    if (session.status === "IN_PROGRESS") {
-      session.status = "RETREAT";
-      session.logs.push("전투 창 닫기: 후퇴 처리");
-    }
+    if (session.status === "IN_PROGRESS") session.status = "RETREAT";
     await this.applyResult(session);
     this.sessions.delete(session.id);
-    this.sessionByUser.delete(userId);
-  }
-
-  private buildWaves(locationId: string): BattleWave[] {
-    const rows = dataRegistry.getLocationWaves(locationId);
-    const byWave = new Map<number, BattleWave>();
-    for (const row of rows) {
-      if (!byWave.has(row.waveIndex)) byWave.set(row.waveIndex, { waveIndex: row.waveIndex, units: [] });
-      byWave.get(row.waveIndex)!.units.push({ monsterTemplateId: row.monsterTemplateId, count: row.count });
+    const ids = this.sessionIdsByUser.get(userId);
+    if (ids) {
+      ids.delete(session.id);
+      if (ids.size < 1) this.sessionIdsByUser.delete(userId);
     }
-    return Array.from(byWave.values()).sort((a, b) => a.waveIndex - b.waveIndex);
   }
 
-  private phaseSeconds(phase: BattlePhase): number {
-    if (phase === "EXPLORE") return dataRegistry.getDefineValue("exploreSeconds", 4);
-    if (phase === "LOOT") return dataRegistry.getDefineValue("lootSeconds", 2.5);
-    return dataRegistry.getDefineValue("turnSeconds", 3.5);
+  private phaseSeconds(session: BattleSession): number {
+    if (session.phase === "EXPLORE") return dataRegistry.getDefineValue("exploreSeconds", 1.5);
+    if (session.phase === "BATTLE") return dataRegistry.getDefineValue("turnSeconds", 2);
+    return dataRegistry.getDefineValue("lootSeconds", 0.8);
   }
 
   private toStats(base: CombatUnitRow): RuntimeStats {
@@ -298,8 +443,11 @@ class BattleService {
   }
 
   private toMercCombatant(merc: Mercenary, equipments: Equipment[]): RuntimeCombatant {
-    const base = dataRegistry.getCombatUnit("MERC_TEMPLATE", merc.templateId);
-    const skills = dataRegistry.getCombatSkills("MERC_TEMPLATE", merc.templateId);
+    const base =
+      dataRegistry.getCombatUnitOrNull("MERC_TEMPLATE", merc.templateId) ??
+      dataRegistry.combatUnits.find((u) => u.entityType === "MERC_TEMPLATE");
+    if (!base) throw new Error("MERC_COMBAT_UNIT_MISSING");
+    const skills = dataRegistry.getCombatSkills("MERC_TEMPLATE", base.entityId);
     const stats = this.toStats(base);
     const equipBonus = calcEquipBonus(equipments);
     stats.attack = Math.floor(stats.attack * (1 + equipBonus));
@@ -308,15 +456,27 @@ class BattleService {
     stats.maxMana = Math.floor(stats.maxMana * (1 + merc.level * 0.02));
     stats.attack = Math.floor(stats.attack * (1 + merc.level * 0.04 + merc.promotionBonus));
     stats.defense = Math.floor(stats.defense * (1 + merc.level * 0.03 + merc.promotionBonus));
-    const withTalent = this.applyTalent(stats, merc.talentTag);
-    const adjusted = this.applyPassives(withTalent, skills);
+    const adjusted = this.applyPassives(this.applyTalent(stats, merc.talentTag), skills);
     return {
       runtimeId: crypto.randomBytes(5).toString("hex"),
       side: "ALLY",
       name: base.name,
       spriteUrl: base.spriteUrl,
+      spriteIdle: base.spriteIdle,
+      spriteAttack: base.spriteAttack,
+      spriteFrameWidth: base.spriteFrameWidth,
+      spriteFrameHeight: base.spriteFrameHeight,
+      spriteIdleFrames: base.spriteIdleFrames,
+      spriteAttackFrames: base.spriteAttackFrames,
+      spriteIdleFps: base.spriteIdleFps,
+      spriteAttackFps: base.spriteAttackFps,
+      spritePivotX: base.spritePivotX,
+      spritePivotY: base.spritePivotY,
+      spriteIdleIndexList: base.spriteIdleIndexList,
+      spriteAttackIndexList: base.spriteAttackIndexList,
+      spriteAtlasKey: base.spriteAtlasKey,
       sourceType: "MERC_TEMPLATE",
-      sourceId: merc.templateId,
+      sourceId: base.entityId,
       mercenaryId: merc.id,
       hp: Math.floor(adjusted.maxHp),
       mana: 0,
@@ -325,59 +485,168 @@ class BattleService {
     };
   }
 
-  private spawnWave(wave: BattleWave): RuntimeCombatant[] {
+  private spawnMonsters(session: BattleSession, stageType: StageType): RuntimeCombatant[] {
+    const encounterRows = dataRegistry.getFieldStageEncounters(session.location.locationId, stageType === "EXPLORE" ? "BATTLE" : stageType);
+    if (encounterRows.length < 1) {
+      const fallback = dataRegistry.getLocationWaves(session.location.locationId).filter((w) => w.waveIndex === 1);
+      return fallback.flatMap((w) => this.spawnMonstersFromRow(w.monsterTemplateId, w.count));
+    }
+    const grouped = new Map<string, { weight: number; rows: FieldStageEncounterRow[] }>();
+    for (const row of encounterRows) {
+      if (!grouped.has(row.encounterId)) grouped.set(row.encounterId, { weight: row.weight, rows: [] });
+      grouped.get(row.encounterId)!.rows.push(row);
+    }
+    const picked = weightedPick(Array.from(grouped.values()), (x) => x.weight);
+    return picked.rows.flatMap((r) => this.spawnMonstersFromRow(r.monsterTemplateId, r.count));
+  }
+
+  private spawnMonstersFromRow(monsterTemplateId: string, count: number): RuntimeCombatant[] {
     const out: RuntimeCombatant[] = [];
-    for (const w of wave.units) {
-      for (let i = 0; i < w.count; i += 1) {
-        const base = dataRegistry.getCombatUnit("MONSTER_TEMPLATE", w.monsterTemplateId);
-        const skills = dataRegistry.getCombatSkills("MONSTER_TEMPLATE", w.monsterTemplateId);
-        const adjusted = this.applyPassives(this.toStats(base), skills);
-        out.push({
-          runtimeId: crypto.randomBytes(5).toString("hex"),
-          side: "ENEMY",
-          name: base.name,
-          spriteUrl: base.spriteUrl,
-          sourceType: "MONSTER_TEMPLATE",
-          sourceId: w.monsterTemplateId,
-          hp: Math.floor(adjusted.maxHp),
-          mana: 0,
-          stats: adjusted,
-          skills,
-        });
-      }
+    for (let i = 0; i < count; i += 1) {
+      const base = dataRegistry.getCombatUnit("MONSTER_TEMPLATE", monsterTemplateId);
+      const skills = dataRegistry.getCombatSkills("MONSTER_TEMPLATE", monsterTemplateId);
+      const adjusted = this.applyPassives(this.toStats(base), skills);
+      out.push({
+        runtimeId: crypto.randomBytes(5).toString("hex"),
+        side: "ENEMY",
+        name: base.name,
+        spriteUrl: base.spriteUrl,
+        spriteIdle: base.spriteIdle,
+        spriteAttack: base.spriteAttack,
+        spriteFrameWidth: base.spriteFrameWidth,
+        spriteFrameHeight: base.spriteFrameHeight,
+        spriteIdleFrames: base.spriteIdleFrames,
+        spriteAttackFrames: base.spriteAttackFrames,
+        spriteIdleFps: base.spriteIdleFps,
+        spriteAttackFps: base.spriteAttackFps,
+        spritePivotX: base.spritePivotX,
+        spritePivotY: base.spritePivotY,
+        spriteIdleIndexList: base.spriteIdleIndexList,
+        spriteAttackIndexList: base.spriteAttackIndexList,
+        spriteAtlasKey: base.spriteAtlasKey,
+        sourceType: "MONSTER_TEMPLATE",
+        sourceId: monsterTemplateId,
+        hp: Math.floor(adjusted.maxHp),
+        mana: 0,
+        stats: adjusted,
+        skills,
+      });
     }
     return out;
   }
 
+  private chooseNextStageType(session: BattleSession): StageType {
+    const r = session.stageRule;
+    const nextClear = session.clearCount + 1;
+    if (r.bossEveryStageClears > 0 && nextClear % r.bossEveryStageClears === 0) return "BOSS";
+    if (r.hiddenEveryStageClears > 0 && nextClear % r.hiddenEveryStageClears === 0 && Math.random() < clamp(r.hiddenEnterChance, 0, 1)) {
+      return "HIDDEN";
+    }
+    const total = Math.max(0.0001, r.battleStageWeight + r.exploreStageWeight);
+    return Math.random() < r.battleStageWeight / total ? "BATTLE" : "EXPLORE";
+  }
+
+  private applyExploreStage(session: BattleSession): void {
+    const roll = Math.random();
+    if (roll < 0.33) {
+      for (const ally of session.allies) {
+        if (ally.hp <= 0) continue;
+        const heal = Math.max(1, Math.floor(ally.stats.maxHp * 0.25));
+        ally.hp = Math.min(ally.stats.maxHp, ally.hp + heal);
+        pushEvent(session, {
+          kind: "heal",
+          targetId: ally.runtimeId,
+          targetName: ally.name,
+          targetSide: "ALLY",
+          value: heal,
+          text: `explore heal ${ally.name} +${heal}`,
+        });
+      }
+      session.logs.push("탐색 스테이지: 체력 회복");
+      return;
+    }
+    if (roll < 0.66) {
+      session.attackBuffPct = 0.18;
+      session.defenseBuffPct = 0.18;
+      session.buffBattleStagesLeft = Math.max(session.buffBattleStagesLeft, 2);
+      session.logs.push("탐색 스테이지: 전투 버프 획득 (2 전투 스테이지)");
+      return;
+    }
+    const bonusCredits = Math.max(1, Math.floor(session.location.baseCreditReward * 0.6));
+    const bonusA = Math.max(0, Math.floor(session.location.materialAReward * 0.4));
+    const bonusB = Math.max(0, Math.floor(session.location.materialBReward * 0.4));
+    session.stageReward = { credits: bonusCredits, exp: 0, materialA: bonusA, materialB: bonusB };
+    session.totalReward.credits += bonusCredits;
+    session.totalReward.materialA += bonusA;
+    session.totalReward.materialB += bonusB;
+    session.logs.push(`탐색 스테이지: 보급 획득 C${bonusCredits} A${bonusA} B${bonusB}`);
+  }
+
+  private effectiveAttack(actor: RuntimeCombatant, session: BattleSession): number {
+    if (actor.side !== "ALLY" || session.buffBattleStagesLeft < 1) return actor.stats.attack;
+    return actor.stats.attack * (1 + session.attackBuffPct);
+  }
+
+  private effectiveDefense(target: RuntimeCombatant, session: BattleSession): number {
+    if (target.side !== "ALLY" || session.buffBattleStagesLeft < 1) return target.stats.defense;
+    return target.stats.defense * (1 + session.defenseBuffPct);
+  }
+
   private dealDamage(session: BattleSession, attacker: RuntimeCombatant, defender: RuntimeCombatant, multiplier: number, allowCounter: boolean): number {
     if (attacker.hp <= 0 || defender.hp <= 0) return 0;
-
     if (Math.random() < clamp(defender.stats.evasion, 0, 0.75)) {
       session.logs.push(`${attacker.name} 공격을 ${defender.name} 회피`);
+      pushEvent(session, {
+        kind: "miss",
+        attackerId: attacker.runtimeId,
+        attackerName: attacker.name,
+        attackerSide: attacker.side,
+        targetId: defender.runtimeId,
+        targetName: defender.name,
+        targetSide: defender.side,
+        text: `${attacker.name} -> ${defender.name} miss`,
+      });
       return 0;
     }
 
-    let coreAttack = attacker.stats.attack;
+    let coreAttack = this.effectiveAttack(attacker, session);
     if (attacker.stats.damageType === "physical") coreAttack += attacker.stats.strength * 0.7;
     if (attacker.stats.damageType === "magic") coreAttack += attacker.stats.intelligence * 0.9;
     if (attacker.stats.damageType === "chaos") coreAttack += (attacker.stats.strength + attacker.stats.intelligence) * 0.45;
-
     let damage = coreAttack * multiplier;
-    damage *= 100 / (100 + defender.stats.defense);
+    damage *= 100 / (100 + this.effectiveDefense(defender, session));
 
     const crit = Math.random() < clamp(attacker.stats.critChance, 0, 0.95);
     if (crit) damage *= clamp(attacker.stats.critDamage, 1, 3.5);
-
     const final = Math.max(1, Math.floor(damage));
     const beforeHp = defender.hp;
     defender.hp = Math.max(0, defender.hp - final);
     session.logs.push(`${attacker.name} -> ${defender.name} ${final} 피해${crit ? " (치명타)" : ""}`);
+    pushEvent(session, {
+      kind: "hit",
+      attackerId: attacker.runtimeId,
+      attackerName: attacker.name,
+      attackerSide: attacker.side,
+      targetId: defender.runtimeId,
+      targetName: defender.name,
+      targetSide: defender.side,
+      value: final,
+      text: `${attacker.name} -> ${defender.name} ${final}`,
+    });
 
     if (attacker.stats.lifeSteal > 0) {
       const healed = Math.floor(final * clamp(attacker.stats.lifeSteal, 0, 0.8));
       if (healed > 0) {
         attacker.hp = Math.min(attacker.stats.maxHp, attacker.hp + healed);
         session.logs.push(`${attacker.name} 흡혈 +${healed}`);
+        pushEvent(session, {
+          kind: "heal",
+          targetId: attacker.runtimeId,
+          targetName: attacker.name,
+          targetSide: attacker.side,
+          value: healed,
+          text: `${attacker.name} heal +${healed}`,
+        });
       }
     }
 
@@ -386,19 +655,43 @@ class BattleService {
       if (thorn > 0) {
         const reflected = Math.max(1, Math.floor(thorn));
         attacker.hp = Math.max(0, attacker.hp - reflected);
-        session.logs.push(`${defender.name} 가시 피해 ${reflected}`);
+        pushEvent(session, {
+          kind: "hit",
+          attackerId: defender.runtimeId,
+          attackerName: defender.name,
+          attackerSide: defender.side,
+          targetId: attacker.runtimeId,
+          targetName: attacker.name,
+          targetSide: attacker.side,
+          value: reflected,
+          text: `${defender.name} thorn ${reflected}`,
+        });
       }
     }
 
     if (beforeHp > 0 && defender.hp <= 0) {
+      if (defender.side === "ENEMY") {
+        session.totalKills += 1;
+        if (defender.sourceType === "MONSTER_TEMPLATE") {
+          session.killByEnemyId[defender.sourceId] = (session.killByEnemyId[defender.sourceId] ?? 0) + 1;
+        }
+      }
       this.rollDrop(session, defender);
     }
 
     if (allowCounter && defender.hp > 0 && Math.random() < clamp(defender.stats.counter, 0, 0.7)) {
-      session.logs.push(`${defender.name} 반격`);
+      pushEvent(session, {
+        kind: "counter",
+        attackerId: defender.runtimeId,
+        attackerName: defender.name,
+        attackerSide: defender.side,
+        targetId: attacker.runtimeId,
+        targetName: attacker.name,
+        targetSide: attacker.side,
+        text: `${defender.name} counter`,
+      });
       this.dealDamage(session, defender, attacker, 0.6, false);
     }
-
     return final;
   }
 
@@ -416,14 +709,13 @@ class BattleService {
         };
         session.pendingDrops.push(drop);
         session.totalDrops.push(drop);
-        session.logs.push(`${dead.name} 처치: ${d.itemName} 드랍`);
+        pushEvent(session, { kind: "drop", targetName: dead.name, targetSide: dead.side, text: `${d.itemName} drop` });
       }
     }
   }
 
   private actorStep(session: BattleSession, actor: RuntimeCombatant): void {
     if (actor.hp <= 0) return;
-
     const manaRegen =
       actor.stats.maxMana * dataRegistry.getDefineValue("manaRegenBasePct", 0.1) +
       actor.stats.intelligence * dataRegistry.getDefineValue("manaRegenIntPct", 0.1);
@@ -444,65 +736,132 @@ class BattleService {
         if (ally) {
           const amount = Math.max(1, Math.floor(actor.stats.maxHp * active.value1 * actor.stats.healPower));
           ally.hp = Math.min(ally.stats.maxHp, ally.hp + amount);
-          session.logs.push(`${actor.name} ${active.skillName}: ${ally.name} +${amount} 회복`);
+          pushEvent(session, {
+            kind: "skill",
+            attackerId: actor.runtimeId,
+            attackerName: actor.name,
+            attackerSide: actor.side,
+            targetId: ally.runtimeId,
+            targetName: ally.name,
+            targetSide: ally.side,
+            value: amount,
+            text: `${actor.name} ${active.skillName}`,
+          });
           return;
         }
       }
       if (active.effectType === "aoe_damage") {
-        session.logs.push(`${actor.name} ${active.skillName} 발동`);
+        pushEvent(session, { kind: "skill", attackerId: actor.runtimeId, attackerName: actor.name, attackerSide: actor.side, text: `${actor.name} ${active.skillName}` });
         for (const enemy of alive(enemyList)) this.dealDamage(session, actor, enemy, active.value1, true);
         return;
       }
-      session.logs.push(`${actor.name} ${active.skillName} 발동`);
+      pushEvent(session, {
+        kind: "skill",
+        attackerId: actor.runtimeId,
+        attackerName: actor.name,
+        attackerSide: actor.side,
+        targetId: target.runtimeId,
+        targetName: target.name,
+        targetSide: target.side,
+        text: `${actor.name} ${active.skillName}`,
+      });
       this.dealDamage(session, actor, target, active.value1, true);
       return;
     }
-
     this.dealDamage(session, actor, target, 1, true);
   }
 
   private async processTurn(session: BattleSession): Promise<void> {
-    const order = [...alive(session.allies), ...alive(session.enemies)].sort((a, b) => b.stats.agility - a.stats.agility);
-    for (const actor of order) {
-      if (session.status !== "IN_PROGRESS" || session.phase !== "BATTLE") break;
-      this.actorStep(session, actor);
-      await this.checkOutcome(session);
+    const rebuildQueue = () => {
+      const order = [...alive(session.allies), ...alive(session.enemies)].sort((a, b) => b.stats.agility - a.stats.agility);
+      session.turnQueue = order.map((u) => u.runtimeId);
+      session.turnCursor = 0;
+    };
+
+    if (session.turnQueue.length < 1 || session.turnCursor >= session.turnQueue.length) {
+      rebuildQueue();
+    }
+    if (session.turnQueue.length < 1) return;
+
+    const actorId = session.turnQueue[session.turnCursor];
+    const actor = [...session.allies, ...session.enemies].find((u) => u.runtimeId === actorId && u.hp > 0);
+    session.turnCursor += 1;
+    if (!actor) {
+      if (session.turnCursor >= session.turnQueue.length) rebuildQueue();
+      return;
+    }
+
+    session.actionTurn += 1;
+    session.logs.push(`TURN ${session.actionTurn}: ${actor.name}`);
+    this.actorStep(session, actor);
+    if (alive(session.allies).length < 1 || alive(session.enemies).length < 1) {
+      session.turnQueue = [];
+      session.turnCursor = 0;
+    } else if (session.turnCursor >= session.turnQueue.length) {
+      rebuildQueue();
     }
     const keep = Math.max(8, Math.floor(dataRegistry.getDefineValue("logKeepCount", 30)));
     session.logs = session.logs.slice(-keep);
   }
 
-  private async checkOutcome(session: BattleSession): Promise<void> {
-    if (alive(session.allies).length < 1) {
-      session.retryCount += 1;
-      session.logs.push(`아군 전멸 - 탐색부터 재시작 (${session.retryCount})`);
-      session.allies = session.initialAllies.map((a) => this.cloneCombatant(a));
-      session.enemies = [];
-      session.waveCursor = 0;
-      session.pendingDrops = [];
-      session.phase = "EXPLORE";
-      session.logs.push(dataRegistry.getRandomExploreText());
+  private stageRewardFactor(stageType: StageType): number {
+    if (stageType === "BOSS") return 3;
+    if (stageType === "HIDDEN") return 1.4;
+    if (stageType === "BATTLE") return 1;
+    return 0;
+  }
+
+  private async resolveExplorePhase(session: BattleSession): Promise<void> {
+    const nextStage = this.chooseNextStageType(session);
+    session.currentStageType = nextStage;
+    session.stageNo += 1;
+    session.stageReward = { credits: 0, exp: 0, materialA: 0, materialB: 0 };
+    if (nextStage === "EXPLORE") {
+      this.applyExploreStage(session);
+      if (session.stageReward.credits || session.stageReward.materialA || session.stageReward.materialB) {
+        await prisma.user.update({
+          where: { id: session.userId },
+          data: {
+            credits: { increment: session.stageReward.credits },
+            materialA: { increment: session.stageReward.materialA },
+            materialB: { increment: session.stageReward.materialB },
+          },
+        });
+      }
+      session.clearCount += 1;
+      session.logs.push(`STAGE ${session.stageNo} 탐색 완료`);
       return;
     }
 
-    if (alive(session.enemies).length < 1) {
-      if (session.waveCursor + 1 < session.waves.length) {
-        session.waveCursor += 1;
-        session.enemies = this.spawnWave(session.waves[session.waveCursor]);
-        session.logs.push(`WAVE ${session.waves[session.waveCursor].waveIndex} 시작`);
-        return;
-      }
-      session.phase = "LOOT";
-      session.logs.push("전투 종료 - 아이템 획득 단계");
-    }
+    const factor = this.stageRewardFactor(nextStage);
+    session.stageReward = {
+      credits: Math.max(1, Math.floor(session.location.baseCreditReward * factor)),
+      exp: Math.max(1, Math.floor(session.location.baseExpReward * factor)),
+      materialA: Math.max(0, Math.floor(session.location.materialAReward * factor)),
+      materialB: Math.max(0, Math.floor(session.location.materialBReward * factor)),
+    };
+    session.enemies = this.spawnMonsters(session, nextStage);
+    session.turnQueue = [];
+    session.turnCursor = 0;
+    session.phase = "BATTLE";
+    session.logs.push(`STAGE ${session.stageNo} ${nextStage} 시작`);
   }
 
-  private async resolveExplore(session: BattleSession): Promise<void> {
-    session.logs.push(dataRegistry.getRandomExploreText());
-    session.waveCursor = 0;
-    session.enemies = this.spawnWave(session.waves[0]);
-    session.phase = "BATTLE";
-    session.logs.push("WAVE 1 시작");
+  private async resolveBattleOutcome(session: BattleSession): Promise<void> {
+    if (alive(session.allies).length < 1) {
+      session.retryCount += 1;
+      session.logs.push("전멸 - 탐색부터 재시작");
+      session.allies = session.initialAllies.map((a) => this.cloneCombatant(a));
+      session.enemies = [];
+      session.pendingDrops = [];
+      session.turnQueue = [];
+      session.turnCursor = 0;
+      session.phase = "EXPLORE";
+      return;
+    }
+    if (alive(session.enemies).length < 1) {
+      session.phase = "LOOT";
+    }
   }
 
   private async resolveLoot(session: BattleSession): Promise<void> {
@@ -510,11 +869,12 @@ class BattleService {
       await tx.user.update({
         where: { id: session.userId },
         data: {
-          credits: { increment: session.rewardCredits },
-          materialA: { increment: session.rewardMaterialA },
-          materialB: { increment: session.rewardMaterialB },
+          credits: { increment: session.stageReward.credits },
+          materialA: { increment: session.stageReward.materialA },
+          materialB: { increment: session.stageReward.materialB },
         },
       });
+
       for (const drop of session.pendingDrops) {
         await tx.equipment.create({
           data: {
@@ -525,53 +885,56 @@ class BattleService {
           },
         });
       }
+
       const mercs = await tx.mercenary.findMany({ where: { userId: session.userId, id: { in: session.partyIds } } });
       for (const merc of mercs) {
-        const unit = dataRegistry.getCombatUnit("MERC_TEMPLATE", merc.templateId);
-        const gained = Math.max(1, Math.floor(session.rewardExp * unit.expGain));
+        const unit =
+          dataRegistry.getCombatUnitOrNull("MERC_TEMPLATE", merc.templateId) ??
+          dataRegistry.combatUnits.find((u) => u.entityType === "MERC_TEMPLATE");
+        const gained = Math.max(1, Math.floor(session.stageReward.exp * (unit?.expGain ?? 1)));
         const next = levelUpWithExp(merc.level, merc.exp, gained);
         await tx.mercenary.update({ where: { id: merc.id }, data: { level: next.level, exp: next.exp } });
       }
     });
 
-    if (session.pendingDrops.length > 0) {
-      session.logs.push(`아이템 획득: ${session.pendingDrops.map((d) => d.itemName).join(", ")}`);
-    } else {
-      session.logs.push("아이템 획득 없음");
-    }
+    session.totalReward.credits += session.stageReward.credits;
+    session.totalReward.exp += session.stageReward.exp;
+    session.totalReward.materialA += session.stageReward.materialA;
+    session.totalReward.materialB += session.stageReward.materialB;
     session.pendingDrops = [];
     session.clearCount += 1;
-    session.phase = "EXPLORE";
     session.enemies = [];
-    session.waveCursor = 0;
-    session.logs.push(`세션 ${session.clearCount}회 클리어. 탐색 재개`);
+    session.turnQueue = [];
+    session.turnCursor = 0;
+    session.phase = "EXPLORE";
+    if (session.buffBattleStagesLeft > 0) session.buffBattleStagesLeft -= 1;
+    session.logs.push(`STAGE ${session.stageNo} 완료`);
   }
 
   private async advance(session: BattleSession): Promise<void> {
     if (session.status !== "IN_PROGRESS") return;
-
     const now = Date.now();
-    let remainingMs = now - session.updatedAtMs;
-    while (remainingMs > 0 && session.status === "IN_PROGRESS") {
-      const phaseMs = this.phaseSeconds(session.phase) * 1000;
-      if (phaseMs <= 0) break;
-      const needPct = 100 - session.gaugePercent;
-      const needMs = (needPct / 100) * phaseMs;
-      if (remainingMs < needMs) {
-        session.gaugePercent += (remainingMs / phaseMs) * 100;
-        remainingMs = 0;
-        break;
-      }
-
-      session.gaugePercent = 100;
-      remainingMs -= needMs;
-      if (session.phase === "EXPLORE") await this.resolveExplore(session);
-      else if (session.phase === "BATTLE") await this.processTurn(session);
-      else await this.resolveLoot(session);
-      session.gaugePercent = 0;
+    const phaseMs = this.phaseSeconds(session) * 1000;
+    const elapsedMs = Math.max(0, now - session.updatedAtMs);
+    if (phaseMs <= 0) {
+      session.updatedAtMs = now;
+      return;
     }
-
-    session.updatedAtMs = now - remainingMs;
+    session.gaugePercent = clamp(session.gaugePercent + (elapsedMs / phaseMs) * 100, 0, 100);
+    if (session.gaugePercent < 100) {
+      session.updatedAtMs = now;
+      return;
+    }
+    session.gaugePercent = 0;
+    if (session.phase === "EXPLORE") {
+      await this.resolveExplorePhase(session);
+    } else if (session.phase === "BATTLE") {
+      await this.processTurn(session);
+      await this.resolveBattleOutcome(session);
+    } else {
+      await this.resolveLoot(session);
+    }
+    session.updatedAtMs = now;
   }
 
   private async applyResult(session: BattleSession): Promise<void> {
@@ -594,14 +957,40 @@ class BattleService {
   private toView(session: BattleSession): BattleStateView {
     const toFighter = (u: RuntimeCombatant) => ({
       id: u.runtimeId,
+      entityId: u.sourceId,
       name: u.name,
       spriteUrl: u.spriteUrl,
+      spriteIdle: u.spriteIdle,
+      spriteAttack: u.spriteAttack,
+      spriteFrameWidth: u.spriteFrameWidth,
+      spriteFrameHeight: u.spriteFrameHeight,
+      spriteIdleFrames: u.spriteIdleFrames,
+      spriteAttackFrames: u.spriteAttackFrames,
+      spriteIdleFps: u.spriteIdleFps,
+      spriteAttackFps: u.spriteAttackFps,
+      spritePivotX: u.spritePivotX,
+      spritePivotY: u.spritePivotY,
+      spriteIdleIndexList: u.spriteIdleIndexList,
+      spriteAttackIndexList: u.spriteAttackIndexList,
+      spriteAtlasKey: u.spriteAtlasKey,
       hp: Math.max(0, Math.floor(u.hp)),
       maxHp: Math.floor(u.stats.maxHp),
       mana: Math.floor(u.mana),
       maxMana: Math.floor(u.stats.maxMana),
       alive: u.hp > 0,
     });
+    const killsByEnemy = Object.entries(session.killByEnemyId)
+      .map(([enemyId, count]) => {
+        const unit = dataRegistry.getCombatUnitOrNull("MONSTER_TEMPLATE", enemyId);
+        return {
+          enemyId,
+          enemyName: unit?.name ?? enemyId,
+          spriteUrl: unit?.spriteUrl ?? "mon_goblin.svg",
+          count,
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
     return {
       id: session.id,
       status: session.status,
@@ -610,19 +999,29 @@ class BattleService {
       locationId: session.location.locationId,
       locationName: session.location.name,
       locationImageUrl: session.location.imageUrl,
-      waveIndex: session.waves[session.waveCursor]?.waveIndex ?? 1,
+      waveIndex: Math.max(1, session.stageNo),
+      stageType: session.currentStageType,
       allies: session.allies.map(toFighter),
       enemies: session.enemies.map(toFighter),
       logs: [...session.logs],
-      reward: {
-        credits: session.rewardCredits,
-        exp: session.rewardExp,
-        materialA: session.rewardMaterialA,
-        materialB: session.rewardMaterialB,
-      },
+      reward: { ...session.totalReward },
       retryCount: session.retryCount,
       clearCount: session.clearCount,
+      actionTurn: session.actionTurn,
       droppedItems: [...session.totalDrops],
+      combatEvents: [...session.combatEvents],
+      report: {
+        elapsedSeconds: Math.max(0, Math.floor((Date.now() - session.startedAtMs) / 1000)),
+        clearCount: session.clearCount,
+        retryCount: session.retryCount,
+        gainedExp: session.totalReward.exp,
+        gainedCredits: session.totalReward.credits,
+        materialA: session.totalReward.materialA,
+        materialB: session.totalReward.materialB,
+        totalKills: session.totalKills,
+        killsByEnemy,
+        expPerSecond: Number((session.totalReward.exp / Math.max(1, Math.floor((Date.now() - session.startedAtMs) / 1000))).toFixed(2)),
+      },
     };
   }
 }

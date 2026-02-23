@@ -1,12 +1,12 @@
 ﻿# key: define key, value: numeric value, description: human-readable meaning
 key,value,description
-turnSeconds,1.8,auto battle turn interval seconds
-exploreSeconds,1.5,explore phase interval seconds
-lootSeconds,1.2,loot phase interval seconds
-manaRegenBasePct,0.10,mana regen per turn
-manaRegenIntPct,0.10,int based mana bonus per turn
-activeManaThresholdPct,1.00,active skill mana threshold
-logKeepCount,30,battle log retention count
-maxPartySize,3,maximum deployed units
-teamSlotCount,4,team modal slot count
-talentAssignChance,0.35,recruit talent assignment chance
+turnSeconds,3,턴 전환 속도 설정
+exploreSeconds,1.5,탐색 단계 체류 시간
+lootSeconds,1.2,아이템 습득 단계 시간
+manaRegenBasePct,0.1,기본 마나 회복 수치
+manaRegenIntPct,0.1,스탯 영향 회복 보너스
+activeManaThresholdPct,1,스킬 발동 가능 최소 마나
+logKeepCount,30,기록 저장 제한 수
+maxPartySize,4,전장 투입 가능 인원
+teamSlotCount,4,팀 편성 창의 슬롯 개수
+talentAssignChance,0.35,유닛 고용 시 재능 할당률

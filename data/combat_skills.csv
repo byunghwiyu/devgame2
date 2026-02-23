@@ -1,24 +1,26 @@
-﻿# ownerType: owner entity type, ownerId: owner id, skillId: skill id, skillName: skill name, kind: active/passive, effectType: effect category, value1: primary value, value2: secondary value
-ownerType,ownerId,skillId,skillName,kind,effectType,value1,value2
-MERC_TEMPLATE,CHAR_LABORER_A,PS_IRON_SKIN,Iron Skin,passive,defense_pct,0.18,0
-MERC_TEMPLATE,CHAR_LABORER_A,AC_SHIELD_SLAM,Shield Slam,active,damage,1.65,0
-MERC_TEMPLATE,CHAR_LABORER_B,PS_BATTLE_RUSH,Battle Rush,passive,attack_pct,0.15,0
-MERC_TEMPLATE,CHAR_LABORER_B,AC_BLADE_FRENZY,Blade Frenzy,active,damage,1.85,0
-MERC_TEMPLATE,CHAR_SPECIAL_A,PS_TACTICAL_AURA,Tactical Aura,passive,heal_power_pct,0.20,0
-MERC_TEMPLATE,CHAR_SPECIAL_A,AC_FIELD_MEDIC,Field Medic,active,heal_lowest,0.32,0
-MERC_TEMPLATE,CHAR_HERO_A,PS_LEGEND_WILL,Legend Will,passive,life_steal_pct,0.10,0
-MERC_TEMPLATE,CHAR_HERO_A,AC_STORM_BREAKER,Storm Breaker,active,aoe_damage,1.45,0
-MONSTER_TEMPLATE,MON_WOLF,PS_POUNCE,Pounce,passive,crit_pct,0.06,0
-MONSTER_TEMPLATE,MON_WOLF,AC_FERAL_BITE,Feral Bite,active,damage,1.60,0
-MONSTER_TEMPLATE,MON_GOBLIN,PS_DIRTY_STRIKE,Dirty Strike,passive,evasion_pct,0.05,0
-MONSTER_TEMPLATE,MON_GOBLIN,AC_AMBUSH,Ambush,active,damage,1.55,0
-MONSTER_TEMPLATE,MON_SLIME,PS_ARC_SURGE,Arc Surge,passive,thorn_magical_flat,2.00,0
-MONSTER_TEMPLATE,MON_SLIME,AC_ACID_BURST,Acid Burst,active,aoe_damage,1.25,0
-MONSTER_TEMPLATE,MON_WRAITH,PS_VOID_SHELL,Void Shell,passive,defense_pct,0.12,0
-MONSTER_TEMPLATE,MON_WRAITH,AC_SOUL_DRAIN,Soul Drain,active,damage,1.70,0
-MONSTER_TEMPLATE,MON_GOLEM,PS_BEDROCK,Bedrock,passive,hp_regen_flat,4.00,0
-MONSTER_TEMPLATE,MON_GOLEM,AC_STONE_CRASH,Stone Crash,active,damage,1.85,0
-MONSTER_TEMPLATE,MON_SERPENT,PS_TIDAL_SKIN,Tidal Skin,passive,evasion_pct,0.04,0
-MONSTER_TEMPLATE,MON_SERPENT,AC_CHAOS_SPLASH,Chaos Splash,active,aoe_damage,1.38,0
-MONSTER_TEMPLATE,MON_FLAME_LORD,PS_BURNING_CORE,Burning Core,passive,attack_pct,0.16,0
-MONSTER_TEMPLATE,MON_FLAME_LORD,AC_INFERNO_RING,Inferno Ring,active,aoe_damage,1.55,0
+﻿# ownerType: owner entity type, ownerId: owner id, skillId: skill id, skillName: skill name, kind: active/passive, effectType: effect category, value1: primary value
+ownerType,ownerId,skillId,skillName,kind,effectType,value1
+MERC_TEMPLATE,CHAR_chelsu,PS_IRON_SKIN,Iron Skin,passive,defense_pct,0.18
+MERC_TEMPLATE,CHAR_chelsu,AC_SHIELD_SLAM,Shield Slam,active,damage,1.65
+MERC_TEMPLATE,CHAR_sehee,PS_IRON_SKIN,Iron Skin,passive,defense_pct,0.18
+MERC_TEMPLATE,CHAR_sehee,AC_SHIELD_SLAM,Shield Slam,active,damage,1.65
+MERC_TEMPLATE,CHAR_sera,PS_BATTLE_RUSH,Battle Rush,passive,attack_pct,0.15
+MERC_TEMPLATE,CHAR_sera,AC_BLADE_FRENZY,Blade Frenzy,active,damage,1.85
+MERC_TEMPLATE,CHAR_hong,PS_TACTICAL_AURA,Tactical Aura,passive,heal_power_pct,0.2
+MERC_TEMPLATE,CHAR_hong,AC_FIELD_MEDIC,Field Medic,active,heal_lowest,0.32
+MERC_TEMPLATE,CHAR_lee,PS_LEGEND_WILL,Legend Will,passive,life_steal_pct,0.1
+MERC_TEMPLATE,CHAR_lee,AC_STORM_BREAKER,Storm Breaker,active,aoe_damage,1.45
+MONSTER_TEMPLATE,MON_WOLF,PS_POUNCE,Pounce,passive,crit_pct,0.06
+MONSTER_TEMPLATE,MON_WOLF,AC_FERAL_BITE,Feral Bite,active,damage,1.6
+MONSTER_TEMPLATE,MON_GOBLIN,PS_DIRTY_STRIKE,Dirty Strike,passive,evasion_pct,0.05
+MONSTER_TEMPLATE,MON_GOBLIN,AC_AMBUSH,Ambush,active,damage,1.55
+MONSTER_TEMPLATE,MON_SLIME,PS_ARC_SURGE,Arc Surge,passive,thorn_magical_flat,2
+MONSTER_TEMPLATE,MON_SLIME,AC_ACID_BURST,Acid Burst,active,aoe_damage,1.25
+MONSTER_TEMPLATE,MON_WRAITH,PS_VOID_SHELL,Void Shell,passive,defense_pct,0.12
+MONSTER_TEMPLATE,MON_WRAITH,AC_SOUL_DRAIN,Soul Drain,active,damage,1.7
+MONSTER_TEMPLATE,MON_GOLEM,PS_BEDROCK,Bedrock,passive,hp_regen_flat,4
+MONSTER_TEMPLATE,MON_GOLEM,AC_STONE_CRASH,Stone Crash,active,damage,1.85
+MONSTER_TEMPLATE,MON_SERPENT,PS_TIDAL_SKIN,Tidal Skin,passive,evasion_pct,0.04
+MONSTER_TEMPLATE,MON_SERPENT,AC_CHAOS_SPLASH,Chaos Splash,active,aoe_damage,1.38
+MONSTER_TEMPLATE,MON_FLAME_LORD,PS_BURNING_CORE,Burning Core,passive,attack_pct,0.16
+MONSTER_TEMPLATE,MON_FLAME_LORD,AC_INFERNO_RING,Inferno Ring,active,aoe_damage,1.55

@@ -35,7 +35,12 @@ async function refillOffers(userId: string): Promise<void> {
 async function ensureOffers(userId: string): Promise<void> {
   const offers = await prisma.offer.findMany({ where: { userId }, orderBy: { slotIndex: "asc" } });
   const now = new Date();
-  if (offers.length < ECONOMY_CONFIG.offerDefaultCount || offers.some((o) => o.expiresAt.getTime() <= now.getTime())) {
+  const hasUnknownTemplate = offers.some((o) => !dataRegistry.getTemplateOrNull(o.templateId));
+  if (
+    offers.length < ECONOMY_CONFIG.offerDefaultCount ||
+    offers.some((o) => o.expiresAt.getTime() <= now.getTime()) ||
+    hasUnknownTemplate
+  ) {
     await refillOffers(userId);
   }
 }
@@ -58,6 +63,7 @@ export async function offerRoutes(app: FastifyInstance) {
           slotIndex: o.slotIndex,
           templateId: o.templateId,
           name: t.name,
+          imageUrl: t.imageUrl,
           grade: t.grade,
           roleTag: t.roleTag,
           recruitCostCredits: t.recruitCostCredits,

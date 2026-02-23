@@ -21,6 +21,7 @@ export type OfferCard = {
   slotIndex: number;
   templateId: string;
   name: string;
+  imageUrl: string;
   grade: number;
   roleTag: string;
   recruitCostCredits: number;
@@ -34,6 +35,7 @@ export type MercenaryView = {
   id: string;
   templateId: string;
   name: string;
+  imageUrl: string;
   grade: number;
   roleTag: string;
   level: number;
@@ -115,8 +117,22 @@ export type Equipment = {
 
 export type BattleUnitView = {
   id: string;
+  entityId?: string;
   name: string;
   spriteUrl: string;
+  spriteIdle?: string;
+  spriteAttack?: string;
+  spriteFrameWidth?: number;
+  spriteFrameHeight?: number;
+  spriteIdleFrames?: number;
+  spriteAttackFrames?: number;
+  spriteIdleFps?: number;
+  spriteAttackFps?: number;
+  spritePivotX?: number;
+  spritePivotY?: number;
+  spriteIdleIndexList?: number[];
+  spriteAttackIndexList?: number[];
+  spriteAtlasKey?: string;
   hp: number;
   maxHp: number;
   mana: number;
@@ -138,6 +154,7 @@ export type BattleState = {
   locationName: string;
   locationImageUrl: string;
   waveIndex: number;
+  stageType?: "BATTLE" | "EXPLORE" | "BOSS" | "HIDDEN";
   allies: BattleUnitView[];
   enemies: BattleUnitView[];
   logs: string[];
@@ -149,6 +166,7 @@ export type BattleState = {
   };
   retryCount: number;
   clearCount: number;
+  actionTurn?: number;
   droppedItems: Array<{
     itemId: string;
     itemName: string;
@@ -156,4 +174,33 @@ export type BattleState = {
     grade: number;
     statValue: number;
   }>;
+  combatEvents?: Array<{
+    seq: number;
+    kind: "hit" | "heal" | "miss" | "skill" | "drop" | "counter";
+    attackerId?: string;
+    attackerName?: string;
+    attackerSide?: "ALLY" | "ENEMY";
+    targetId?: string;
+    targetName?: string;
+    targetSide?: "ALLY" | "ENEMY";
+    value?: number;
+    text: string;
+  }>;
+  report?: {
+    elapsedSeconds: number;
+    clearCount: number;
+    retryCount: number;
+    gainedExp: number;
+    gainedCredits: number;
+    materialA: number;
+    materialB: number;
+    totalKills: number;
+    killsByEnemy: Array<{
+      enemyId: string;
+      enemyName: string;
+      spriteUrl: string;
+      count: number;
+    }>;
+    expPerSecond: number;
+  };
 };

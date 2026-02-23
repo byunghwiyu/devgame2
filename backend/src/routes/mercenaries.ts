@@ -13,24 +13,26 @@ export async function mercenaryRoutes(app: FastifyInstance) {
     const equips = await prisma.equipment.findMany({ where: { userId } });
 
     const list = mercs.map((m) => {
-      const tpl = dataRegistry.getTemplate(m.templateId);
+      const tpl = dataRegistry.getTemplateOrNull(m.templateId);
       const equipped = equips.filter((e) => e.equippedMercId === m.id);
       const equipBonus = calcEquipBonus(equipped);
-      const power = calcMercPower(m, tpl.baseStat, equipBonus);
+      const baseStat = tpl?.baseStat ?? 40;
+      const power = calcMercPower(m, baseStat, equipBonus);
       const talent = dataRegistry.getTalent(m.talentTag);
       return {
         id: m.id,
         templateId: m.templateId,
-        name: tpl.name,
+        name: tpl?.name ?? m.templateId,
+        imageUrl: tpl?.imageUrl ?? "",
         grade: m.grade,
-        roleTag: m.roleTag,
+        roleTag: tpl?.roleTag ?? m.roleTag,
         level: m.level,
         exp: m.exp,
         promotionRoute: m.promotionRoute,
         promotionBonus: m.promotionBonus,
         isDispatched: m.isDispatched,
         power,
-        traitLine: tpl.traitLine,
+        traitLine: tpl?.traitLine ?? "Template data missing",
         talentTag: m.talentTag,
         talentName: talent?.name ?? null,
         talentDescription: talent?.description ?? null,

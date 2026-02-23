@@ -10,11 +10,13 @@ function toPartyIds(value: unknown): string[] {
 
 export async function battleRoutes(app: FastifyInstance) {
   app.get("/battle/config", async () => {
+    const teamSlotCount = Math.max(1, Math.floor(dataRegistry.getDefineValue("teamSlotCount", 4)));
+    const maxPartySize = Math.max(teamSlotCount, Math.floor(dataRegistry.getDefineValue("maxPartySize", teamSlotCount)));
     return {
       ok: true,
       data: {
-        maxPartySize: Math.max(1, Math.floor(dataRegistry.getDefineValue("maxPartySize", 3))),
-        teamSlotCount: Math.max(1, Math.floor(dataRegistry.getDefineValue("teamSlotCount", 4))),
+        maxPartySize,
+        teamSlotCount,
       },
     };
   });
@@ -30,12 +32,24 @@ export async function battleRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get("/battle/list", async (request, reply) => {
+    const userId = await requireUserId(request, reply);
+    if (!userId) return;
+    try {
+      const states = await battleService.listByUser(userId);
+      return { ok: true, data: states };
+    } catch (e) {
+      return reply.code(400).send({ ok: false, error: (e as Error).message || "BATTLE_LIST_FAILED" });
+    }
+  });
+
   app.post<{ Body: { locationId: string; partyIds: string[] } }>("/battle/start", async (request, reply) => {
     const userId = await requireUserId(request, reply);
     if (!userId) return;
     try {
       const locationId = String(request.body?.locationId ?? "");
-      const maxPartySize = Math.max(1, Math.floor(dataRegistry.getDefineValue("maxPartySize", 3)));
+      const teamSlotCount = Math.max(1, Math.floor(dataRegistry.getDefineValue("teamSlotCount", 4)));
+      const maxPartySize = Math.max(teamSlotCount, Math.floor(dataRegistry.getDefineValue("maxPartySize", teamSlotCount)));
       const partyIds = toPartyIds(request.body?.partyIds ?? []).slice(0, maxPartySize);
       if (!locationId || partyIds.length < 1) {
         return reply.code(400).send({ ok: false, error: "INVALID_BATTLE_REQUEST" });

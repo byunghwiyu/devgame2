@@ -1,6 +1,10 @@
 ﻿# locationId: location id, waveIndex: wave number, monsterTemplateId: monster template id, count: spawn count
 locationId,waveIndex,monsterTemplateId,count
 SITE_ALPHA,1,MON_WOLF,1
+SITE_ALPHA,2,MON_WOLF,2
+SITE_ALPHA,3,MON_WOLF,2
+SITE_ALPHA,4,MON_WOLF,3
+SITE_ALPHA,5,MON_WOLF,3
 SITE_BRAVO,1,MON_GOBLIN,2
 SITE_BRAVO,1,MON_SLIME,1
 SITE_BRAVO,2,MON_WRAITH,1
