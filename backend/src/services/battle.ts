@@ -100,6 +100,7 @@ type BattleSession = {
   initialAllies: RuntimeCombatant[];
   phase: BattlePhase;
   status: BattleStatus;
+  paused: boolean;
   gaugePercent: number;
   updatedAtMs: number;
   startedAtMs: number;
@@ -120,14 +121,16 @@ type BattleSession = {
   attackBuffPct: number;
   defenseBuffPct: number;
   buffBattleStagesLeft: number;
-  turnQueue: string[];
-  turnCursor: number;
+  turnSideNext: Side;
+  allyTurnCursor: number;
+  enemyTurnCursor: number;
   actionTurn: number;
 };
 
 export type BattleStateView = {
   id: string;
   status: BattleStatus;
+  paused: boolean;
   phase: BattlePhase;
   gaugePercent: number;
   locationId: string;
@@ -279,6 +282,7 @@ class BattleService {
       initialAllies: allies.map((a) => this.cloneCombatant(a)),
       phase: "EXPLORE",
       status: "IN_PROGRESS",
+      paused: false,
       gaugePercent: 0,
       updatedAtMs: Date.now(),
       startedAtMs: Date.now(),
@@ -299,8 +303,9 @@ class BattleService {
       attackBuffPct: 0,
       defenseBuffPct: 0,
       buffBattleStagesLeft: 0,
-      turnQueue: [],
-      turnCursor: 0,
+      turnSideNext: "ALLY",
+      allyTurnCursor: 0,
+      enemyTurnCursor: 0,
       actionTurn: 0,
     };
     this.sessions.set(id, session);
@@ -335,6 +340,21 @@ class BattleService {
     const session = this.sessions.get(sessionId);
     if (!session || session.userId !== userId) throw new Error("BATTLE_NOT_FOUND");
     await this.advance(session);
+    return this.toView(session);
+  }
+
+  async setPaused(userId: string, sessionId: string, paused?: boolean): Promise<BattleStateView> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.userId !== userId) throw new Error("BATTLE_NOT_FOUND");
+    if (session.status !== "IN_PROGRESS") throw new Error("BATTLE_NOT_ACTIVE");
+
+    const nextPaused = typeof paused === "boolean" ? paused : !session.paused;
+    if (session.paused !== nextPaused) {
+      session.paused = nextPaused;
+      session.updatedAtMs = Date.now();
+      session.logs.push(nextPaused ? "PAUSED" : "RESUMED");
+    }
+
     return this.toView(session);
   }
 
@@ -771,35 +791,55 @@ class BattleService {
     this.dealDamage(session, actor, target, 1, true);
   }
 
+  private averageAgility(list: RuntimeCombatant[]): number {
+    const units = alive(list);
+    if (units.length < 1) return 0;
+    const sum = units.reduce((acc, unit) => acc + Math.max(0, unit.stats.agility), 0);
+    return sum / units.length;
+  }
+
+  private resetTurnStateForBattle(session: BattleSession): void {
+    session.allyTurnCursor = 0;
+    session.enemyTurnCursor = 0;
+    const allyAvg = this.averageAgility(session.allies);
+    const enemyAvg = this.averageAgility(session.enemies);
+    session.turnSideNext = allyAvg >= enemyAvg ? "ALLY" : "ENEMY";
+  }
+
+  private nextActorFromSide(session: BattleSession, side: Side): RuntimeCombatant | null {
+    const team = side === "ALLY" ? session.allies : session.enemies;
+    if (team.length < 1) return null;
+
+    let idx = side === "ALLY" ? session.allyTurnCursor : session.enemyTurnCursor;
+    idx = ((idx % team.length) + team.length) % team.length;
+
+    for (let i = 0; i < team.length; i += 1) {
+      const actor = team[idx];
+      idx = (idx + 1) % team.length;
+      if (actor.hp <= 0) continue;
+      if (side === "ALLY") session.allyTurnCursor = idx;
+      else session.enemyTurnCursor = idx;
+      return actor;
+    }
+    return null;
+  }
+
   private async processTurn(session: BattleSession): Promise<void> {
-    const rebuildQueue = () => {
-      const order = [...alive(session.allies), ...alive(session.enemies)].sort((a, b) => b.stats.agility - a.stats.agility);
-      session.turnQueue = order.map((u) => u.runtimeId);
-      session.turnCursor = 0;
-    };
+    if (alive(session.allies).length < 1 || alive(session.enemies).length < 1) return;
 
-    if (session.turnQueue.length < 1 || session.turnCursor >= session.turnQueue.length) {
-      rebuildQueue();
-    }
-    if (session.turnQueue.length < 1) return;
-
-    const actorId = session.turnQueue[session.turnCursor];
-    const actor = [...session.allies, ...session.enemies].find((u) => u.runtimeId === actorId && u.hp > 0);
-    session.turnCursor += 1;
-    if (!actor) {
-      if (session.turnCursor >= session.turnQueue.length) rebuildQueue();
-      return;
-    }
+    const plannedSide = session.turnSideNext;
+    const altSide: Side = plannedSide === "ALLY" ? "ENEMY" : "ALLY";
+    const actor = this.nextActorFromSide(session, plannedSide) ?? this.nextActorFromSide(session, altSide);
+    if (!actor) return;
 
     session.actionTurn += 1;
-    session.logs.push(`TURN ${session.actionTurn}: ${actor.name}`);
+    session.logs.push(`TURN ${session.actionTurn}: [${actor.side}] ${actor.name}`);
     this.actorStep(session, actor);
-    if (alive(session.allies).length < 1 || alive(session.enemies).length < 1) {
-      session.turnQueue = [];
-      session.turnCursor = 0;
-    } else if (session.turnCursor >= session.turnQueue.length) {
-      rebuildQueue();
+
+    if (alive(session.allies).length > 0 && alive(session.enemies).length > 0) {
+      session.turnSideNext = actor.side === "ALLY" ? "ENEMY" : "ALLY";
     }
+
     const keep = Math.max(8, Math.floor(dataRegistry.getDefineValue("logKeepCount", 30)));
     session.logs = session.logs.slice(-keep);
   }
@@ -841,8 +881,7 @@ class BattleService {
       materialB: Math.max(0, Math.floor(session.location.materialBReward * factor)),
     };
     session.enemies = this.spawnMonsters(session, nextStage);
-    session.turnQueue = [];
-    session.turnCursor = 0;
+    this.resetTurnStateForBattle(session);
     session.phase = "BATTLE";
     session.logs.push(`STAGE ${session.stageNo} ${nextStage} 시작`);
   }
@@ -854,8 +893,7 @@ class BattleService {
       session.allies = session.initialAllies.map((a) => this.cloneCombatant(a));
       session.enemies = [];
       session.pendingDrops = [];
-      session.turnQueue = [];
-      session.turnCursor = 0;
+      this.resetTurnStateForBattle(session);
       session.phase = "EXPLORE";
       return;
     }
@@ -904,8 +942,7 @@ class BattleService {
     session.pendingDrops = [];
     session.clearCount += 1;
     session.enemies = [];
-    session.turnQueue = [];
-    session.turnCursor = 0;
+    this.resetTurnStateForBattle(session);
     session.phase = "EXPLORE";
     if (session.buffBattleStagesLeft > 0) session.buffBattleStagesLeft -= 1;
     session.logs.push(`STAGE ${session.stageNo} 완료`);
@@ -914,6 +951,10 @@ class BattleService {
   private async advance(session: BattleSession): Promise<void> {
     if (session.status !== "IN_PROGRESS") return;
     const now = Date.now();
+    if (session.paused) {
+      session.updatedAtMs = now;
+      return;
+    }
     const phaseMs = this.phaseSeconds(session) * 1000;
     const elapsedMs = Math.max(0, now - session.updatedAtMs);
     if (phaseMs <= 0) {
@@ -994,6 +1035,7 @@ class BattleService {
     return {
       id: session.id,
       status: session.status,
+      paused: session.paused,
       phase: session.phase,
       gaugePercent: clamp(session.gaugePercent, 0, 100),
       locationId: session.location.locationId,

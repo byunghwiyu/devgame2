@@ -74,6 +74,20 @@ export async function battleRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post<{ Body: { sessionId: string; paused?: boolean } }>("/battle/pause", async (request, reply) => {
+    const userId = await requireUserId(request, reply);
+    if (!userId) return;
+    try {
+      const sessionId = String(request.body?.sessionId ?? "");
+      if (!sessionId) return reply.code(400).send({ ok: false, error: "SESSION_ID_REQUIRED" });
+      const paused = typeof request.body?.paused === "boolean" ? request.body.paused : undefined;
+      const state = await battleService.setPaused(userId, sessionId, paused);
+      return { ok: true, data: state };
+    } catch (e) {
+      return reply.code(404).send({ ok: false, error: (e as Error).message || "BATTLE_NOT_FOUND" });
+    }
+  });
+
   app.post<{ Body: { sessionId: string } }>("/battle/retreat", async (request, reply) => {
     const userId = await requireUserId(request, reply);
     if (!userId) return;

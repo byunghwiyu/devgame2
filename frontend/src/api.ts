@@ -67,6 +67,8 @@ export const api = {
   battleList: (token: string) => req<BattleState[]>("/battle/list", { method: "GET" }, token),
   battleState: (token: string, sessionId: string) =>
     req<BattleState>(`/battle/state?sessionId=${encodeURIComponent(sessionId)}`, { method: "GET" }, token),
+  battlePause: (token: string, sessionId: string, paused?: boolean) =>
+    req<BattleState>("/battle/pause", { method: "POST", body: JSON.stringify({ sessionId, paused }) }, token),
   battleRetreat: (token: string, sessionId: string) =>
     req<BattleState>("/battle/retreat", { method: "POST", body: JSON.stringify({ sessionId }) }, token),
   battleClose: (token: string, sessionId: string) =>

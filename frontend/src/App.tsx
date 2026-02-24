@@ -63,11 +63,11 @@ function popupLeft(id: string): string {
 }
 
 function dropIcon(type: string): string {
-  if (type === "weapon") return "⚔";
-  if (type === "armor") return "🛡";
-  if (type === "accessory") return "💍";
-  if (type === "extra") return "✨";
-  return "📦";
+  if (type === "weapon") return "W";
+  if (type === "armor") return "A";
+  if (type === "accessory") return "R";
+  if (type === "extra") return "X";
+  return "?";
 }
 
 function stackDrops(drops: BattleState["droppedItems"]) {
@@ -109,13 +109,13 @@ function talentBadgeStyle(tag?: string | null) {
 }
 
 const MONSTER_ILLUST_BY_LABEL: Record<string, string> = {
-  "늑대": "/assets/illustrations/monsters/mon_wolf.svg",
-  "고블린": "/assets/illustrations/monsters/mon_goblin.svg",
-  "슬라임": "/assets/illustrations/monsters/mon_slime.svg",
-  "망령": "/assets/illustrations/monsters/mon_wraith.svg",
-  "돌거인": "/assets/illustrations/monsters/mon_golem.svg",
-  "바다뱀": "/assets/illustrations/monsters/mon_serpent.svg",
-  "화염정령": "/assets/illustrations/monsters/mon_flame_lord.svg",
+  "wolf": "/assets/illustrations/monsters/mon_wolf.svg",
+  "goblin": "/assets/illustrations/monsters/mon_goblin.svg",
+  "slime": "/assets/illustrations/monsters/mon_slime.svg",
+  "wraith": "/assets/illustrations/monsters/mon_wraith.svg",
+  "golem": "/assets/illustrations/monsters/mon_golem.svg",
+  "serpent": "/assets/illustrations/monsters/mon_serpent.svg",
+  "flame_lord": "/assets/illustrations/monsters/mon_flame_lord.svg",
 };
 
 function fileNameOnly(v?: string | null): string {
@@ -583,19 +583,27 @@ export default function App() {
         const prev = battleRef.current;
         const nextActive = list.find((b) => b.id === activeBattleId) ?? list[0] ?? null;
         if (nextActive) {
+          const aliveUnitIds = new Set([
+            ...nextActive.allies.filter((u) => u.alive).map((u) => u.id),
+            ...nextActive.enemies.filter((u) => u.alive).map((u) => u.id),
+          ]);
           const lastSeq = lastCombatSeqRef.current[nextActive.id] ?? 0;
           const newEvents = (nextActive.combatEvents ?? []).filter((e) => e.seq > lastSeq);
-          if (newEvents.length > 0) {
+          const hasNewEvents = newEvents.length > 0;
+          if (hasNewEvents && import.meta.env.DEV) {
+            console.debug("[battle-popup] newEvents", { sessionId: nextActive.id, actionTurn: nextActive.actionTurn, events: newEvents });
+          }
+          if (hasNewEvents) {
             const nextFx: Record<string, "attack" | "hit" | "skill" | "counter"> = {};
             const toPopups: Array<{ id: string; unitId?: string; unitName?: string; side: "ALLY" | "ENEMY"; kind: "hit" | "heal" | "miss"; value?: number }> = [];
             for (const ev of newEvents) {
-              if (ev.attackerId && (ev.kind === "hit" || ev.kind === "skill" || ev.kind === "counter")) {
+              if (ev.attackerId && aliveUnitIds.has(ev.attackerId) && (ev.kind === "hit" || ev.kind === "skill" || ev.kind === "counter")) {
                 nextFx[ev.attackerId] = ev.kind === "skill" ? "skill" : ev.kind === "counter" ? "counter" : "attack";
               }
-              if (ev.targetId && (ev.kind === "hit" || ev.kind === "counter")) {
+              if (ev.targetId && aliveUnitIds.has(ev.targetId) && (ev.kind === "hit" || ev.kind === "counter")) {
                 nextFx[ev.targetId] = "hit";
               }
-              if (ev.targetId && (ev.kind === "hit" || ev.kind === "heal") && typeof ev.value === "number" && ev.value > 0) {
+              if (ev.targetId && aliveUnitIds.has(ev.targetId) && (ev.kind === "hit" || ev.kind === "heal") && typeof ev.value === "number" && ev.value > 0) {
                 toPopups.push({
                   id: `${ev.seq}-${ev.targetId}`,
                   unitId: ev.targetId,
@@ -605,7 +613,7 @@ export default function App() {
                   value: ev.value,
                 });
               }
-              if (ev.targetId && ev.kind === "miss") {
+              if (ev.targetId && aliveUnitIds.has(ev.targetId) && ev.kind === "miss") {
                 toPopups.push({
                   id: `${ev.seq}-${ev.targetId}-miss`,
                   unitId: ev.targetId,
@@ -626,6 +634,7 @@ export default function App() {
               }, 320);
             }
             if (toPopups.length > 0) {
+              if (import.meta.env.DEV) console.debug("[battle-popup] event-popups", { sessionId: nextActive.id, actionTurn: nextActive.actionTurn, popups: toPopups });
               setDamagePopups((prevPop) => [...prevPop, ...toPopups].slice(-36));
               setTimeout(() => {
                 setDamagePopups((prevPop) => prevPop.filter((p) => !toPopups.some((n) => n.id === p.id)));
@@ -635,11 +644,12 @@ export default function App() {
             lastCombatSeqRef.current[nextActive.id] = Math.max(lastCombatSeqRef.current[nextActive.id] ?? 0, maxSeq);
           }
 
-          if (prev && prev.id === nextActive.id) {
+          if (!hasNewEvents && prev && prev.id === nextActive.id) {
             const fallback: Array<{ id: string; unitId?: string; unitName?: string; side: "ALLY" | "ENEMY"; kind: "hit" | "heal" | "miss"; value?: number }> = [];
             const fallbackFx: Record<string, "hit"> = {};
             for (const u of nextActive.allies) {
-              const p = prev.allies.find((x) => x.id === u.id || x.name === u.name);
+              if (!u.alive) continue;
+              const p = prev.allies.find((x) => x.id === u.id);
               if (!p) continue;
               if (u.hp < p.hp) {
                 fallback.push({ id: `fb-a-hit-${u.id}-${Date.now()}`, unitId: u.id, unitName: u.name, side: "ALLY", kind: "hit", value: p.hp - u.hp });
@@ -648,7 +658,8 @@ export default function App() {
               if (u.hp > p.hp) fallback.push({ id: `fb-a-heal-${u.id}-${Date.now()}`, unitId: u.id, unitName: u.name, side: "ALLY", kind: "heal", value: u.hp - p.hp });
             }
             for (const u of nextActive.enemies) {
-              const p = prev.enemies.find((x) => x.id === u.id || x.name === u.name);
+              if (!u.alive) continue;
+              const p = prev.enemies.find((x) => x.id === u.id);
               if (!p) continue;
               if (u.hp < p.hp) {
                 fallback.push({ id: `fb-e-hit-${u.id}-${Date.now()}`, unitId: u.id, unitName: u.name, side: "ENEMY", kind: "hit", value: p.hp - u.hp });
@@ -667,6 +678,7 @@ export default function App() {
               }, 260);
             }
             if (fallback.length > 0) {
+              if (import.meta.env.DEV) console.debug("[battle-popup] fallback-popups", { sessionId: nextActive.id, actionTurn: nextActive.actionTurn, popups: fallback });
               setDamagePopups((prevPop) => [...prevPop, ...fallback].slice(-48));
               setTimeout(() => {
                 setDamagePopups((prevPop) => prevPop.filter((p) => !fallback.some((n) => n.id === p.id)));
@@ -677,10 +689,10 @@ export default function App() {
           // Final fallback: parse new log lines and force FX/popup by unit name.
           const lastLogIndex = lastLogIndexRef.current[nextActive.id] ?? 0;
           const appendedLogs = nextActive.logs.slice(lastLogIndex);
-          if (appendedLogs.length > 0) {
+          if (!hasNewEvents && appendedLogs.length > 0) {
             const nameToUnit = new Map<string, { id: string; side: "ALLY" | "ENEMY" }>();
-            nextActive.allies.forEach((u) => nameToUnit.set(u.name, { id: u.id, side: "ALLY" }));
-            nextActive.enemies.forEach((u) => nameToUnit.set(u.name, { id: u.id, side: "ENEMY" }));
+            nextActive.allies.filter((u) => u.alive).forEach((u) => nameToUnit.set(u.name, { id: u.id, side: "ALLY" }));
+            nextActive.enemies.filter((u) => u.alive).forEach((u) => nameToUnit.set(u.name, { id: u.id, side: "ENEMY" }));
             const logFx: Record<string, "attack" | "hit" | "skill" | "counter"> = {};
             const logPops: Array<{ id: string; unitId?: string; unitName?: string; side: "ALLY" | "ENEMY"; kind: "hit" | "heal" | "miss"; value?: number }> =
               [];
@@ -693,7 +705,8 @@ export default function App() {
                 const tgt = nameToUnit.get(tgtName);
                 const value = Number(mDamage[3]);
                 if (atk) logFx[atk.id] = "attack";
-                if (tgt) logFx[tgt.id] = "hit";
+                if (!tgt) return;
+                logFx[tgt.id] = "hit";
                 logPops.push({
                   id: `log-dmg-${nextActive.id}-${lastLogIndex + li}-${tgt?.id ?? tgtName}`,
                   unitId: tgt?.id,
@@ -709,6 +722,7 @@ export default function App() {
                 const whoName = mHeal[1].trim();
                 const who = nameToUnit.get(whoName);
                 const value = Number(mHeal[2]);
+                if (!who) return;
                 logPops.push({
                   id: `log-heal-${nextActive.id}-${lastLogIndex + li}-${who?.id ?? whoName}`,
                   unitId: who?.id,
@@ -732,6 +746,7 @@ export default function App() {
               }, 420);
             }
             if (logPops.length > 0) {
+              if (import.meta.env.DEV) console.debug("[battle-popup] log-popups", { sessionId: nextActive.id, actionTurn: nextActive.actionTurn, popups: logPops });
               setDamagePopups((prevPop) => [...prevPop, ...logPops].slice(-60));
               setTimeout(() => {
                 setDamagePopups((prevPop) => prevPop.filter((p) => !logPops.some((n) => n.id === p.id)));
@@ -1038,11 +1053,27 @@ export default function App() {
               <div>
                 <h2>{battle.locationName}</h2>
                 <p className="small">
-                  Stage {battle.waveIndex} ({battle.stageType ?? "BATTLE"}) | Turn {battle.actionTurn ?? 0} | {phaseLabel(battle.phase)} | Retry{" "}
+                  Stage {battle.waveIndex} ({battle.stageType ?? "BATTLE"}) | Turn {battle.actionTurn ?? 0} | {phaseLabel(battle.phase)} | {battle.paused ? "Paused" : "Running"} | Retry{" "}
                   {battle.retryCount} | Clear {battle.clearCount}
                 </p>
               </div>
-              <button onClick={() => setBattlePageOpen(false)}>Back</button>
+              <div className="rowBtn">
+                <button
+                  disabled={!token || loading || battle.status !== "IN_PROGRESS"}
+                  onClick={() =>
+                    guarded(async () => {
+                      const next = await api.battlePause(token!, battle.id, !battle.paused);
+                      setBattle(next);
+                      battleRef.current = next;
+                      setBattles((prevList) => prevList.map((b) => (b.id === next.id ? next : b)));
+                      showToast(next.paused ? "Battle paused" : "Battle resumed");
+                    })
+                  }
+                >
+                  {battle.paused ? "Resume" : "Pause"}
+                </button>
+                <button onClick={() => setBattlePageOpen(false)}>Back</button>
+              </div>
             </div>
 
             <div className="battleArena" style={{ backgroundImage: `url(${battle.locationImageUrl})` }}>
@@ -1072,12 +1103,12 @@ export default function App() {
               })()}
               <div className="battleLane battleLaneAllies">
                 {battle.allies.map((u) => (
-                  <div key={u.id} className={`sprite ally ${u.alive ? "" : "dead"} ${unitFx[u.id] ? `fx-${unitFx[u.id]}` : ""}`}>
+                  <div key={u.id} className={`sprite ally ${u.alive ? "" : "dead"} ${u.alive && unitFx[u.id] ? `fx-${unitFx[u.id]}` : ""}`}>
                     <BattleSprite unit={u} fx={unitFx[u.id]} className="spriteImg" />
                     <strong className="spriteName">{u.name}</strong>
                     <div className="spritePopups">
                       {damagePopups
-                        .filter((p) => p.unitId === u.id || p.unitName === u.name)
+                        .filter((p) => u.alive && p.unitId === u.id)
                         .map((p) => (
                           <span key={p.id} className={`damagePopup ally ${p.kind === "heal" ? "heal" : p.kind === "miss" ? "miss" : "hit"}`}>
                             {p.kind === "miss" ? "MISS" : p.kind === "heal" ? `+${p.value}` : `-${p.value}`}
@@ -1095,12 +1126,12 @@ export default function App() {
               </div>
               <div className="battleLane battleLaneEnemies">
                 {battle.enemies.map((u) => (
-                  <div key={u.id} className={`sprite enemy ${u.alive ? "" : "dead"} ${unitFx[u.id] ? `fx-${unitFx[u.id]}` : ""}`}>
+                  <div key={u.id} className={`sprite enemy ${u.alive ? "" : "dead"} ${u.alive && unitFx[u.id] ? `fx-${unitFx[u.id]}` : ""}`}>
                     <BattleSprite unit={u} fx={unitFx[u.id]} className="spriteImg" />
                     <strong className="spriteName">{u.name}</strong>
                     <div className="spritePopups">
                       {damagePopups
-                        .filter((p) => p.unitId === u.id || p.unitName === u.name)
+                        .filter((p) => u.alive && p.unitId === u.id)
                         .map((p) => (
                           <span key={p.id} className={`damagePopup enemy ${p.kind === "heal" ? "heal" : p.kind === "miss" ? "miss" : "hit"}`}>
                             {p.kind === "miss" ? "MISS" : p.kind === "heal" ? `+${p.value}` : `-${p.value}`}
@@ -1231,7 +1262,7 @@ export default function App() {
                       aria-label="Open battle report"
                       title="Open battle report"
                     >
-                      🎒
+                      ???
                     </button>
                   </div>
                 </article>
@@ -1311,7 +1342,7 @@ export default function App() {
                   })
                 }
               >
-                <span className="recruitCtaSingle">{canAfford ? `Recruit · C ${fmtNum(o.recruitCostCredits)}` : `Not enough credits · C ${fmtNum(o.recruitCostCredits)}`}</span>
+                <span className="recruitCtaSingle">{canAfford ? `Recruit ??C ${fmtNum(o.recruitCostCredits)}` : `Not enough credits ??C ${fmtNum(o.recruitCostCredits)}`}</span>
               </button>
             </article>
             );
@@ -1623,22 +1654,22 @@ export default function App() {
       {battleReportOpen && battleReportTarget && (
         <div className="modalBackdrop">
           <div className="modalPanel battleReportModal">
-            <h3>보고서 - {battleReportTarget.locationName}</h3>
-            <p className="small reportSub">마지막 정리 이후 누적 탐험 기록입니다.</p>
+            <h3>???????ㅻ깹??????- {battleReportTarget.locationName}</h3>
+            <p className="small reportSub">????釉먮폁??????????????븐뼐??????????????????袁⑸즴筌?씛彛????????熬곣뫖利당춯??쎾퐲????????釉랁닑???????????????????ㅻ깽?????????嶺??</p>
             <div className="reportGrid">
-              <p>탐험 시간: <strong>{fmtDuration(battleReportTarget.report?.elapsedSeconds ?? 0)}</strong></p>
-              <p>클리어한 지역 수: <strong>{fmtNum(battleReportTarget.report?.clearCount ?? battleReportTarget.clearCount)}</strong></p>
-              <p>팀이 패배한 횟수: <strong>{fmtNum(battleReportTarget.report?.retryCount ?? battleReportTarget.retryCount)}</strong></p>
-              <p>획득한 경험치: <strong>{fmtNum(battleReportTarget.report?.gainedExp ?? battleReportTarget.reward.exp)}</strong></p>
-              <p>획득한 크레딧: <strong>{fmtNum(battleReportTarget.report?.gainedCredits ?? battleReportTarget.reward.credits)}</strong></p>
-              <p>획득한 재화: <strong>A {fmtNum(battleReportTarget.report?.materialA ?? battleReportTarget.reward.materialA)} / B {fmtNum(battleReportTarget.report?.materialB ?? battleReportTarget.reward.materialB)}</strong></p>
-              <p>처치한 적 수: <strong>{fmtNum(battleReportTarget.report?.totalKills ?? 0)}</strong></p>
-              <p>시간 당 경험치: <strong>{fmtNum(Math.round((battleReportTarget.report?.expPerSecond ?? 0) * 3600))}</strong></p>
+              <p>??????釉랁닑???????????? <strong>{fmtDuration(battleReportTarget.report?.elapsedSeconds ?? 0)}</strong></p>
+              <p>???????????袁⑸즴筌?씛彛???????釉먮폁?????????? <strong>{fmtNum(battleReportTarget.report?.clearCount ?? battleReportTarget.clearCount)}</strong></p>
+              <p>???????????????????????⑸㎣簾? <strong>{fmtNum(battleReportTarget.report?.retryCount ?? battleReportTarget.retryCount)}</strong></p>
+              <p>????????쇰뮛????癲?????뀀맩鍮???癲????????????? <strong>{fmtNum(battleReportTarget.report?.gainedExp ?? battleReportTarget.reward.exp)}</strong></p>
+              <p>????????쇰뮛????癲??????? <strong>{fmtNum(battleReportTarget.report?.gainedCredits ?? battleReportTarget.reward.credits)}</strong></p>
+              <p>????????쇰뮛????癲?????? <strong>A {fmtNum(battleReportTarget.report?.materialA ?? battleReportTarget.reward.materialA)} / B {fmtNum(battleReportTarget.report?.materialB ?? battleReportTarget.reward.materialB)}</strong></p>
+              <p>????釉먮폁????????????꿔꺂???猷명ц땻??????? <strong>{fmtNum(battleReportTarget.report?.totalKills ?? 0)}</strong></p>
+              <p>???????????뀀맩鍮???癲????????????? <strong>{fmtNum(Math.round((battleReportTarget.report?.expPerSecond ?? 0) * 3600))}</strong></p>
             </div>
             <div>
-              <p className="reportLabel">획득 아이템</p>
+              <p className="reportLabel">Report</p>
               {battleReportTarget.droppedItems.length < 1 ? (
-                <p className="small">없음</p>
+                <p className="small">None</p>
               ) : (
                 <div className="dropStackRow">
                   {stackDrops(battleReportTarget.droppedItems).map((d) => (
@@ -1651,9 +1682,9 @@ export default function App() {
               )}
             </div>
             <div>
-              <p className="reportLabel">처치한 적</p>
+              <p className="reportLabel">Report</p>
               {(battleReportTarget.report?.killsByEnemy?.length ?? 0) < 1 ? (
-                <p className="small">없음</p>
+                <p className="small">None</p>
               ) : (
                 <div className="dropStackRow">
                   {battleReportTarget.report!.killsByEnemy.map((k) => (
@@ -1666,7 +1697,7 @@ export default function App() {
               )}
             </div>
             <div className="teamModalBottom">
-              <button onClick={() => setBattleReportOpen(false)}>닫기</button>
+              <button onClick={() => setBattleReportOpen(false)}>Close</button>
             </div>
           </div>
         </div>

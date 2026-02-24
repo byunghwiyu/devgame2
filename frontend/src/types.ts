@@ -148,6 +148,7 @@ export type BattleConfig = {
 export type BattleState = {
   id: string;
   status: "IN_PROGRESS" | "RETREAT";
+  paused: boolean;
   phase: "EXPLORE" | "BATTLE" | "LOOT";
   gaugePercent: number;
   locationId: string;
